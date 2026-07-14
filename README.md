@@ -1,43 +1,71 @@
-# Paint-by-Numbers Converter
+# Paint-by-Numbers Generator
 
-Локальное веб-приложение: превращает фотографию или картинку в PDF-лист
-«картины по номерам» для печати и раскрашивания.
+Turn any photo or image into a printable paint-by-numbers PDF. Upload an image, tweak the settings, and get a vector coloring page with numbered regions, color palette, and crisp outlines.
 
-## Возможности
+## Features
 
-- Квантование цветов в палитру из 2–64 цветов (k-means)
-- Автоматическая сегментация на области с номерами
-- Векторный PDF (контуры + номера + легенда палитры) форматов A3/A4/A5/Letter/Legal
-- Параметры: размер палитры, мин. область, сглаживание, толщина линий, ориентация
+- **Color quantization** — k-means reduction to 2–64 colors
+- **Region segmentation** — Felzenszwalb superpixels → RAG merge → contour extraction with RETR_CCOMP (exterior + holes)
+- **Contour smoothing** — TC89_KCOS approximation + Chaikin corner-cutting for clean vector paths
+- **Stroke trapping** — adjacent regions overlap by 0.5pt to eliminate white gaps between fills
+- **Vector PDF** — ReportLab rendering with single-pass black outlines, palette legend, and region labels
+- **Configurable** — palette size, minimum region area, smoothing strength, line thickness, paper size & orientation
 
-## Установка
+## Quick Start
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-```
-
-## Запуск
-
-```powershell
 uvicorn app.main:app --reload
 ```
 
-Откройте `http://localhost:8000`, загрузите изображение, настройте параметры
-и нажмите «Сгенерировать PDF».
+Open `http://localhost:8000`, upload an image, adjust parameters, and click "Generate".
 
-## Тесты
+## API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Web UI |
+| GET | `/api/health` | Health check |
+| POST | `/api/convert` | Upload image → download PDF (multipart form: `image` + `palette_size`, `min_region_area`, `smoothing`, etc.) |
+
+## Tests
 
 ```powershell
-python -m pytest -v
+python -m pytest -q --tb=short
 ```
 
-## Структура
+44 tests covering: pipeline integration, region extraction, contour geometry, pole-of-inaccessibility centroid, PDF layout, and full API round-trip.
 
-- `app/` — FastAPI-сервер и конвейер обработки (квантование, сегментация, PDF)
-- `static/` — фронтенд (HTML/JS/CSS, без сборщика)
-- `tests/` — unit- и API-тесты
-- `samples/` — примеры изображений для ручной проверки
-- `docs/superpowers/specs/` — спецификация дизайна
-- `docs/superpowers/plans/` — план реализации
+## Project Structure
+
+```
+app/
+  main.py            — FastAPI server & routes
+  pipeline.py        — full conversion pipeline
+  models.py          — Pydantic params, dataclasses (Region, PaletteColor, RenderData)
+  config.py          — paper sizes, thresholds
+  quantize.py        — k-means color quantization
+  regions.py         — contour extraction (RETR_CCOMP, TC89_KCOS, Chaikin)
+  postprocess.py     — RAG merge, label boundary smoothing
+  pdf_layout.py      — ReportLab PDF rendering
+  visualize.py       — OpenCV preview rendering
+static/
+  index.html, app.js, styles.css — single-page UI
+tests/
+  conftest.py        — test fixtures (two-color synthetic images)
+  test_pipeline.py
+  test_regions.py
+  test_pdf_layout.py
+  test_api.py
+```
+
+## Pipeline
+
+1. `pyrMeanShiftFilter` — edge-preserving noise reduction
+2. Felzenszwalb segmentation + flatten
+3. k-means quantization
+4. RAG merge of small regions + `smooth_label_boundaries`
+5. `extract_regions` — RETR_CCOMP hierarchy, TC89_KCOS approximation, Chaikin smoothing, pole-of-inaccessibility centroids
+6. `render_pdf` — color fills with stroke trapping + single-pass black outlines + palette legend
