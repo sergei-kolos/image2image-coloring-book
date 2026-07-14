@@ -1,0 +1,73 @@
+from __future__ import annotations
+
+import cv2
+import numpy as np
+
+from app.models import PaletteColor
+from app.postprocess import chaikin_smooth, clean_mask, merge_small_regions
+
+
+def test_clean_mask_removes_isolated_noise():
+    mask = np.zeros((50, 50), dtype=np.uint8)
+    mask[10:40, 10:40] = 1
+    mask[0, 0] = 1
+    cleaned = clean_mask(mask)
+    assert cleaned[0, 0] == 0
+    assert cleaned[25, 25] == 1
+
+
+def test_clean_mask_preserves_large_region():
+    mask = np.zeros((100, 100), dtype=np.uint8)
+    mask[20:80, 20:80] = 1
+    cleaned = clean_mask(mask)
+    assert cleaned.sum() > 2500
+
+
+def test_merge_small_regions_absorbs_island():
+    labels = np.zeros((100, 100), dtype=np.int32)
+    labels[:50, :] = 0
+    labels[50:, :] = 1
+    labels[70:74, 70:74] = 0
+
+    palette = [
+        PaletteColor(index=1, hex="#FF0000", rgb=(255, 0, 0)),
+        PaletteColor(index=2, hex="#0000FF", rgb=(0, 0, 255)),
+    ]
+
+    merged = merge_small_regions(labels, palette, min_area_px=100)
+    assert merged[71, 71] == 1
+
+
+def test_merge_small_regions_keeps_large():
+    labels = np.zeros((100, 100), dtype=np.int32)
+    labels[:50, :] = 0
+    labels[50:, :] = 1
+
+    palette = [
+        PaletteColor(index=1, hex="#FF0000", rgb=(255, 0, 0)),
+        PaletteColor(index=2, hex="#0000FF", rgb=(0, 0, 255)),
+    ]
+
+    merged = merge_small_regions(labels, palette, min_area_px=100)
+    assert merged[25, 50] == 0
+    assert merged[75, 50] == 1
+
+
+def test_chaikin_smooth_doubles_points():
+    square = np.array([[0, 0], [10, 0], [10, 10], [0, 10]], dtype=np.float64)
+    smooth = chaikin_smooth(square, iterations=2)
+    assert len(smooth) == 16
+
+
+def test_chaikin_smooth_preserves_centroid():
+    square = np.array([[0, 0], [100, 0], [100, 100], [0, 100]], dtype=np.float64)
+    smooth = chaikin_smooth(square, iterations=3)
+    cx, cy = smooth.mean(axis=0)
+    assert abs(cx - 50.0) < 5.0
+    assert abs(cy - 50.0) < 5.0
+
+
+def test_chaikin_smooth_short_contour_unchanged():
+    triangle = np.array([[0, 0], [5, 0], [3, 3]], dtype=np.float64)
+    smooth = chaikin_smooth(triangle, iterations=2)
+    assert len(smooth) == 3

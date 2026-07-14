@@ -11,6 +11,7 @@ from . import config
 from .models import ConvertParams, RenderData
 from .quantize import quantize
 from .regions import extract_regions
+from .postprocess import merge_small_regions
 
 
 def render_data_from_image(image_bytes: bytes, params: ConvertParams) -> RenderData:
@@ -18,6 +19,8 @@ def render_data_from_image(image_bytes: bytes, params: ConvertParams) -> RenderD
     image = _load_and_normalize(image_bytes, params.smoothing)
     image = _segment_and_flatten(image, params.smoothing)
     palette, labels = quantize(image, params.palette_size)
+    min_area_px = int(image.shape[0] * image.shape[1] * params.min_region_area / 100)
+    labels = merge_small_regions(labels, palette, min_area_px)
     regions = extract_regions(labels, palette, params.min_region_area)
     return RenderData(
         width=image.shape[1],
