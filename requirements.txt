@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+opencv-python-headless
+pillow
+numpy
+reportlab
+python-multipart
+pydantic
+pytest
+pytest-cov
+httpx
