@@ -39,8 +39,8 @@ def _load_and_normalize(image_bytes: bytes, smoothing: int) -> np.ndarray:
         image = cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)
 
     if smoothing > 0:
-        sp = max(1, smoothing * 2)
-        sr = max(10, smoothing * 10)
+        sp = max(1, smoothing)
+        sr = max(5, smoothing * 3)
         image = cv2.pyrMeanShiftFiltering(image, sp=sp, sr=sr)
 
     return image
@@ -53,9 +53,9 @@ def _segment_and_flatten(image: np.ndarray, smoothing: int) -> np.ndarray:
     grid like SLIC. Flattening ensures k-means produces clean, contiguous
     regions whose edges trace actual objects.
     """
-    scale = 50 + smoothing * 30
-    sigma = 0.8
-    min_size = max(30, int(image.shape[0] * image.shape[1] * 0.0005))
+    scale = 30 + smoothing * 5
+    sigma = 0.5
+    min_size = max(20, int(image.shape[0] * image.shape[1] * 0.0001))
 
     segments = felzenszwalb(image, scale=scale, sigma=sigma, min_size=min_size)
 

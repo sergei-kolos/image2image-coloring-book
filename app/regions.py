@@ -6,7 +6,7 @@ import numpy as np
 from .models import PaletteColor, Region
 
 _CLOSE_KERNEL = np.ones((5, 5), np.uint8)
-_SMOOTH_KERNEL = (9, 9)
+_SMOOTH_KERNEL = (5, 5)
 
 
 def extract_regions(labels: np.ndarray, palette, min_region_area: float):
