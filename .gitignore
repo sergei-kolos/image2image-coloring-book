@@ -9,5 +9,6 @@ htmlcov/
 *.egg-info/
 .DS_Store
 uploads/
+.superpowers/
 *.pdf
 !samples/*.pdf

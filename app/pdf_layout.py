@@ -47,6 +47,9 @@ def legend_rows(palette, available_width_pt: float, item_width_pt: float):
 
 
 def compute_layout(data: RenderData, params: ConvertParams) -> LayoutGeometry:
+    if data.width == 0 or data.height == 0:
+        raise ValueError(f"RenderData has zero dimension: width={data.width}, height={data.height}")
+
     margin_pt = config.PAGE_MARGIN_MM * config.MM_TO_PT
     item_w_pt = config.LEGEND_ITEM_MM * config.MM_TO_PT
     row_h_pt = config.LEGEND_ROW_MM * config.MM_TO_PT
@@ -122,13 +125,13 @@ def render_pdf(data: RenderData, params: ConvertParams) -> bytes:
             c.setFont("Helvetica", font_size)
             c.drawCentredString(cx, cy - font_size / 2, str(region.color_index))
 
-    _draw_legend(c, geo, data)
+    _draw_legend(c, geo, data, params.number_color)
     c.showPage()
     c.save()
     return buf.getvalue()
 
 
-def _draw_legend(c, geo: LayoutGeometry, data: RenderData) -> None:
+def _draw_legend(c, geo: LayoutGeometry, data: RenderData, number_color: str) -> None:
     margin = geo.margin_pt
     item_w = config.LEGEND_ITEM_MM * config.MM_TO_PT
     square = config.LEGEND_SQUARE_MM * config.MM_TO_PT
@@ -139,6 +142,8 @@ def _draw_legend(c, geo: LayoutGeometry, data: RenderData) -> None:
     rows = legend_rows(data.palette, avail_w, item_w)
     y_top = margin + geo.legend_h - top_gap
 
+    legend_label_color = colors.black if number_color == "black" else _NUMBER_GRAY
+
     for r_idx, row in enumerate(rows):
         y = y_top - r_idx * row_h - square
         x = margin
@@ -147,7 +152,7 @@ def _draw_legend(c, geo: LayoutGeometry, data: RenderData) -> None:
             c.setStrokeColor(colors.black)
             c.setLineWidth(0.5)
             c.rect(x, y, square, square, fill=1, stroke=1)
-            c.setFillColor(colors.black)
+            c.setFillColor(legend_label_color)
             c.setFont("Helvetica", 8)
             c.drawString(x + square + 2, y + 2, str(color.index))
             x += item_w
