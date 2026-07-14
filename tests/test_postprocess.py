@@ -4,7 +4,12 @@ import cv2
 import numpy as np
 
 from app.models import PaletteColor
-from app.postprocess import chaikin_smooth, clean_mask, merge_small_regions
+from app.postprocess import (
+    adaptive_smooth,
+    chaikin_smooth,
+    clean_mask,
+    merge_small_regions,
+)
 
 
 def test_clean_mask_removes_isolated_noise():
@@ -70,4 +75,39 @@ def test_chaikin_smooth_preserves_centroid():
 def test_chaikin_smooth_short_contour_unchanged():
     triangle = np.array([[0, 0], [5, 0], [3, 3]], dtype=np.float64)
     smooth = chaikin_smooth(triangle, iterations=2)
+    assert len(smooth) == 3
+
+
+def test_adaptive_smooth_preserves_rectangle_corners():
+    rect = np.array([[0, 0], [100, 0], [100, 100], [0, 100]], dtype=np.float64)
+    smooth = adaptive_smooth(rect, sigma=2.0, max_displacement=5.0)
+    for corner in rect:
+        matches = np.any(np.all(np.abs(smooth - corner) < 0.5, axis=1))
+        assert matches, f"Corner {corner} not preserved"
+
+
+def test_adaptive_smooth_limits_displacement():
+    pts = np.array(
+        [[0, 0], [50, 0], [100, 0], [100, 50], [100, 100],
+         [50, 100], [0, 100], [0, 50]],
+        dtype=np.float64,
+    )
+    smooth = adaptive_smooth(pts, sigma=5.0, max_displacement=1.0)
+    dists = np.linalg.norm(smooth - pts, axis=1)
+    assert dists.max() <= 1.0 + 1e-6
+
+
+def test_adaptive_smooth_preserves_centroid():
+    square = np.array(
+        [[0, 0], [100, 0], [100, 100], [0, 100]], dtype=np.float64
+    )
+    smooth = adaptive_smooth(square, sigma=1.0)
+    cx, cy = smooth.mean(axis=0)
+    assert abs(cx - 50.0) < 2.0
+    assert abs(cy - 50.0) < 2.0
+
+
+def test_adaptive_smooth_short_contour_unchanged():
+    triangle = np.array([[0, 0], [5, 0], [3, 3]], dtype=np.float64)
+    smooth = adaptive_smooth(triangle)
     assert len(smooth) == 3

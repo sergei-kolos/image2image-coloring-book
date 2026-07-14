@@ -4,6 +4,7 @@ opencv-python-headless
 pillow
 numpy
 scikit-image
+scipy
 reportlab
 python-multipart
 pydantic

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
+from scipy.ndimage import gaussian_filter1d
 
 from .models import PaletteColor
 
@@ -118,3 +119,70 @@ def chaikin_smooth(points: np.ndarray, iterations: int = 2) -> np.ndarray:
         pts[0::2] = q
         pts[1::2] = r
     return pts
+
+
+def adaptive_smooth(
+    points: np.ndarray,
+    max_angle_deg: float = 130,
+    sigma: float = 1.0,
+    max_displacement: float = 1.5,
+) -> np.ndarray:
+    """Smooth a closed contour while preserving sharp corners and limiting displacement.
+
+    Three protections against topology drift:
+
+    1. **Corner preservation:** points where the turn angle is below
+       *max_angle_deg* (e.g. 90° phone corners, sharp facial features)
+       are treated as structural anchors and kept exactly — no rounding.
+    2. **Bounded Gaussian smoothing:** circular 1-D Gaussian filter on
+       x/y coordinates smooths pixel-level staircasing between anchors.
+    3. **Displacement clamp:** no point moves more than *max_displacement*
+       pixels from its original position, preventing drift.
+    """
+    pts = np.asarray(points, dtype=np.float64)
+    n = len(pts)
+    if n < 4:
+        return pts
+
+    anchor_mask = _detect_sharp_corners(pts, max_angle_deg)
+
+    sx = gaussian_filter1d(pts[:, 0], sigma=sigma, mode="wrap")
+    sy = gaussian_filter1d(pts[:, 1], sigma=sigma, mode="wrap")
+    smoothed = np.column_stack([sx, sy])
+
+    smoothed[anchor_mask] = pts[anchor_mask]
+
+    disp = np.linalg.norm(smoothed - pts, axis=1)
+    exceed = (~anchor_mask) & (disp > max_displacement)
+    if np.any(exceed):
+        scale = max_displacement / disp[exceed]
+        smoothed[exceed] = pts[exceed] + (smoothed[exceed] - pts[exceed]) * scale[:, np.newaxis]
+
+    return smoothed
+
+
+def _detect_sharp_corners(pts: np.ndarray, max_angle_deg: float) -> np.ndarray:
+    """Return boolean mask: True at points whose turn angle < max_angle_deg.
+
+    The turn angle is the angle between the vectors to the previous and next
+    points. A 90° rectangle corner has turn angle ≈ 90° (sharp, preserved).
+    A point on a smooth curve has turn angle ≈ 180° (not preserved).
+    """
+    prev = np.roll(pts, 1, axis=0)
+    nxt = np.roll(pts, -1, axis=0)
+
+    v1 = prev - pts
+    v2 = nxt - pts
+
+    n1 = np.linalg.norm(v1, axis=1)
+    n2 = np.linalg.norm(v2, axis=1)
+    dot = np.einsum("ij,ij->i", v1, v2)
+    cos_angle = np.clip(dot / (n1 * n2 + 1e-10), -1.0, 1.0)
+    angles = np.degrees(np.arccos(cos_angle))
+
+    mask = angles < max_angle_deg
+    if mask.sum() < 3:
+        step = max(1, len(pts) // 8)
+        mask = np.zeros(len(pts), dtype=bool)
+        mask[::step] = True
+    return mask
