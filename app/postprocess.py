@@ -186,3 +186,80 @@ def _detect_sharp_corners(pts: np.ndarray, max_angle_deg: float) -> np.ndarray:
         mask = np.zeros(len(pts), dtype=bool)
         mask[::step] = True
     return mask
+
+
+def organic_smooth(
+    points: np.ndarray,
+    max_angle_deg: float = 110,
+    iterations: int = 2,
+) -> np.ndarray:
+    """Smooth contour preserving structural corners while rounding organic curves.
+
+    Detects sharp corners (turn angle < max_angle_deg) as anchor points and
+    preserves them exactly. Segments between anchors are smoothed with
+    Chaikin corner-cutting on open polylines (endpoints fixed), converting
+    polygon edges into flowing curves.
+
+    - Geometric shapes (phone, rectangles): corners detected and kept,
+      straight edges preserved as straight.
+    - Organic shapes (face, hair, body): few/no sharp corners, entire
+      contour smoothed into rounded arcs.
+    """
+    pts = np.asarray(points, dtype=np.float64)
+    n = len(pts)
+    if n < 4:
+        return pts
+
+    anchor_mask = _detect_sharp_corners(pts, max_angle_deg)
+    anchor_indices = list(np.where(anchor_mask)[0])
+
+    if len(anchor_indices) < 2:
+        return chaikin_smooth(pts, iterations=iterations)
+
+    return _chaikin_between_anchors(pts, anchor_indices, iterations)
+
+
+def _chaikin_between_anchors(
+    pts: np.ndarray, anchor_indices: list[int], iterations: int
+) -> np.ndarray:
+    """Apply open-curve Chaikin to each segment between consecutive anchors."""
+    num_anchors = len(anchor_indices)
+    parts = []
+
+    for i in range(num_anchors):
+        start = anchor_indices[i]
+        end = anchor_indices[(i + 1) % num_anchors]
+
+        if end > start:
+            segment = pts[start : end + 1]
+        elif end < start:
+            segment = np.vstack([pts[start:], pts[: end + 1]])
+        else:
+            continue
+
+        if len(segment) > 3:
+            segment = _chaikin_open(segment, iterations)
+
+        parts.append(segment[:-1])
+
+    return np.vstack(parts)
+
+
+def _chaikin_open(points: np.ndarray, iterations: int = 2) -> np.ndarray:
+    """Chaikin smoothing for an open polyline. First and last points are fixed."""
+    pts = np.asarray(points, dtype=np.float64)
+    for _ in range(iterations):
+        n = len(pts)
+        if n < 4:
+            break
+        p0 = pts[:-1]
+        p1 = pts[1:]
+        q = 0.75 * p0 + 0.25 * p1
+        r = 0.25 * p0 + 0.75 * p1
+        new_pts = np.empty((2 * n, 2), dtype=np.float64)
+        new_pts[0] = pts[0]
+        new_pts[-1] = pts[-1]
+        new_pts[1:-1:2] = q
+        new_pts[2:-1:2] = r
+        pts = new_pts
+    return pts

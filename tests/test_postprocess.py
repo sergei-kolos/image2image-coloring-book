@@ -9,6 +9,7 @@ from app.postprocess import (
     chaikin_smooth,
     clean_mask,
     merge_small_regions,
+    organic_smooth,
 )
 
 
@@ -110,4 +111,28 @@ def test_adaptive_smooth_preserves_centroid():
 def test_adaptive_smooth_short_contour_unchanged():
     triangle = np.array([[0, 0], [5, 0], [3, 3]], dtype=np.float64)
     smooth = adaptive_smooth(triangle)
+    assert len(smooth) == 3
+
+
+def test_organic_smooth_preserves_rectangle_corners():
+    rect = np.array([[0, 0], [100, 0], [100, 100], [0, 100]], dtype=np.float64)
+    smooth = organic_smooth(rect, iterations=2)
+    for corner in rect:
+        matches = np.any(np.all(np.abs(smooth - corner) < 0.5, axis=1))
+        assert matches, f"Corner {corner} not preserved in organic_smooth"
+
+
+def test_organic_smooth_curves_organic_shape():
+    zigzag = np.array(
+        [[0, 50], [20, 40], [40, 45], [60, 35], [80, 42], [100, 30]],
+        dtype=np.float64,
+    )
+    closed = np.vstack([zigzag, [[100, 0], [0, 0]]])
+    smooth = organic_smooth(closed, iterations=2)
+    assert len(smooth) > len(closed)
+
+
+def test_organic_smooth_short_contour_unchanged():
+    triangle = np.array([[0, 0], [5, 0], [3, 3]], dtype=np.float64)
+    smooth = organic_smooth(triangle)
     assert len(smooth) == 3

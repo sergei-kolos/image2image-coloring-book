@@ -4,10 +4,9 @@ import cv2
 import numpy as np
 
 from .models import PaletteColor, Region
-from .postprocess import adaptive_smooth, clean_mask
+from .postprocess import clean_mask, organic_smooth
 
 _SMALL_AREA = 5000
-_MEDIUM_AREA = 20000
 
 
 def extract_regions(labels: np.ndarray, palette, min_region_area: float):
@@ -16,7 +15,8 @@ def extract_regions(labels: np.ndarray, palette, min_region_area: float):
     For each palette color, build a binary mask, clean it morphologically
     (median -> open -> close -> blur), then take external contours.
     Each contour is simplified (approxPolyDP) then smoothed with
-    adaptive_smooth — corner-preserving, displacement-limited, size-adaptive.
+    organic_smooth — corner-preserving for geometric shapes, Chaikin-rounded
+    for organic curves.
     Drops regions whose area < min_region_area percent of the image area.
     """
     total_pixels = labels.size
@@ -45,10 +45,8 @@ def extract_regions(labels: np.ndarray, palette, min_region_area: float):
             cy = moments["m01"] / moments["m00"]
             epsilon = max(2.0, 0.01 * cv2.arcLength(contour, True))
             approx = cv2.approxPolyDP(contour, epsilon, True).reshape(-1, 2)
-            sigma, max_disp = _smoothing_params(area)
-            smooth = adaptive_smooth(
-                approx, sigma=sigma, max_displacement=max_disp
-            )
+            iterations = 2 if area >= _SMALL_AREA else 1
+            smooth = organic_smooth(approx, iterations=iterations)
             regions.append(
                 Region(
                     color_index=color.index,
@@ -58,16 +56,3 @@ def extract_regions(labels: np.ndarray, palette, min_region_area: float):
                 )
             )
     return regions
-
-
-def _smoothing_params(area: float) -> tuple[float, float]:
-    """Return (sigma, max_displacement) scaled to region size.
-
-    Small regions (eyes, facial features) get gentle smoothing to preserve
-    detail; large regions (background, clothes) get stronger cleanup.
-    """
-    if area < _SMALL_AREA:
-        return 0.5, 0.8
-    if area < _MEDIUM_AREA:
-        return 0.8, 1.2
-    return 1.5, 2.0
