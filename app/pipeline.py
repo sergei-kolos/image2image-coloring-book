@@ -5,7 +5,7 @@ import io
 import cv2
 import numpy as np
 from PIL import Image
-from skimage.segmentation import slic
+from skimage.segmentation import felzenszwalb
 
 from . import config
 from .models import ConvertParams, RenderData
@@ -18,7 +18,6 @@ def render_data_from_image(image_bytes: bytes, params: ConvertParams) -> RenderD
     image = _load_and_normalize(image_bytes, params.smoothing)
     image = _segment_and_flatten(image, params.smoothing)
     palette, labels = quantize(image, params.palette_size)
-    labels = _denoise_labels(labels)
     regions = extract_regions(labels, palette, params.min_region_area)
     return RenderData(
         width=image.shape[1],
@@ -48,15 +47,17 @@ def _load_and_normalize(image_bytes: bytes, smoothing: int) -> np.ndarray:
 
 
 def _segment_and_flatten(image: np.ndarray, smoothing: int) -> np.ndarray:
-    """Segment image into SLIC superpixels and flatten each to its mean color.
+    """Segment image with Felzenszwalb (edge-aware) and flatten each region to its mean color.
 
-    This enforces spatial coherence: all pixels in a superpixel get the same
-    color so k-means produces clean region boundaries that follow image edges
-    instead of pixel-level color noise.
+    Felzenszwalb follows real image boundaries instead of creating a regular
+    grid like SLIC. Flattening ensures k-means produces clean, contiguous
+    regions whose edges trace actual objects.
     """
-    n_segments = max(50, int(np.sqrt(image.shape[0] * image.shape[1])) // 3)
-    compactness = 5.0 + smoothing * 2.0
-    segments = slic(image, n_segments=n_segments, compactness=compactness, sigma=1)
+    scale = 50 + smoothing * 30
+    sigma = 0.8
+    min_size = max(30, int(image.shape[0] * image.shape[1] * 0.0005))
+
+    segments = felzenszwalb(image, scale=scale, sigma=sigma, min_size=min_size)
 
     flat_seg = segments.ravel()
     flat_img = image.reshape(-1, 3).astype(np.float64)
@@ -67,9 +68,3 @@ def _segment_and_flatten(image: np.ndarray, smoothing: int) -> np.ndarray:
     np.add.at(counts, flat_seg, 1)
     means = sums / np.maximum(counts[:, np.newaxis], 1)
     return means[flat_seg].reshape(image.shape).astype(np.uint8)
-
-
-def _denoise_labels(labels: np.ndarray) -> np.ndarray:
-    """Remove salt-and-pepper noise from k-means label map via median filter."""
-    cleaned = cv2.medianBlur(labels.astype(np.uint8), 5)
-    return cleaned.astype(np.int32)
