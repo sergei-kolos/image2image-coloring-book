@@ -44,3 +44,16 @@ def test_convert_rejects_bad_content_type():
         data={"palette_size": "4"},
     )
     assert r.status_code == 415
+
+
+def test_index_page_served():
+    client = TestClient(app)
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "Картины по номерам" in r.text
+
+
+def test_static_appjs_served():
+    client = TestClient(app)
+    r = client.get("/static/app.js")
+    assert r.status_code == 200
