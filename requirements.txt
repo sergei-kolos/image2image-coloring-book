@@ -3,6 +3,7 @@ uvicorn[standard]
 opencv-python-headless
 pillow
 numpy
+scikit-image
 reportlab
 python-multipart
 pydantic
