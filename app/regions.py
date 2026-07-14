@@ -4,55 +4,148 @@ import cv2
 import numpy as np
 
 from .models import PaletteColor, Region
-from .postprocess import clean_mask, organic_smooth
+from .postprocess import clean_mask, chaikin_smooth
 
-_SMALL_AREA = 5000
+_BORDER_PADDING = 8        # px — clamp label positions away from edge
+_R_MIN_NUMERIC = 5.0       # px — smallest inscribed-circle radius that fits a number
+_LETTER_POOL = [chr(65 + i) for i in range(26)]
+_LETTER_COUNTER: list[int] = [0]
 
 
-def extract_regions(labels: np.ndarray, palette, min_region_area: float):
-    """Extract paintable regions from a cluster label map.
+def _next_letter() -> str:
+    """Return the next letter label (A–Z, then Aa–Zz)."""
+    n = _LETTER_COUNTER[0]
+    _LETTER_COUNTER[0] += 1
+    if n < 26:
+        return _LETTER_POOL[n]
+    m = n - 26
+    if m < 26:
+        return _LETTER_POOL[m] * 2
+    return str(n)
 
-    For each palette color, build a binary mask, clean it morphologically
-    (median -> open -> close -> blur), then take external contours.
-    Each contour is simplified (approxPolyDP) then smoothed with
-    organic_smooth — corner-preserving for geometric shapes, Chaikin-rounded
-    for organic curves.
-    Drops regions whose area < min_region_area percent of the image area.
+
+def _chaikin_closed(points: np.ndarray, iterations: int = 2) -> np.ndarray:
+    """Chaikin corner‑cutting for a closed polygon (first == last)."""
+    pts = np.asarray(points, dtype=np.float64)
+    for _ in range(iterations):
+        n = len(pts) - 1
+        if n < 3:
+            break
+        p0 = pts[:-1]
+        p1 = pts[1:]
+        q = 0.75 * p0 + 0.25 * p1
+        r = 0.25 * p0 + 0.75 * p1
+        new_pts = np.empty((2 * n, 2), dtype=np.float64)
+        new_pts[0::2] = q
+        new_pts[1::2] = r
+        pts = np.vstack([new_pts, new_pts[:1]])
+    return pts
+
+
+def _pole_of_inaccessibility(contour: np.ndarray, shape: tuple) -> tuple[tuple[float, float], float]:
+    """Find the point inside *contour* maximally distant from all boundaries.
+
+    Uses ``cv2.distanceTransform`` to locate the centre of the largest
+    inscribed circle (the "pole of inaccessibility").  This guarantees the
+    label number stays inside the paint region even for C‑shaped, concave,
+    or highly elongated contours where the geometric centroid would fall
+    outside the polygon.
+
+    Returns ``((cx, cy), max_radius)``.  The coordinates are clamped to
+    ``[_BORDER_PADDING, size - padding]`` so that numbers never drift under
+    the page trim.  ``max_radius`` is the radius of the largest inscribed
+    circle; when it falls below ``_R_MIN_NUMERIC == 5`` px the caller
+    switches to a single‑letter label.
     """
-    total_pixels = labels.size
-    min_px = total_pixels * (min_region_area / 100.0)
+    h, w = shape
+    vis = np.zeros((h, w), dtype=np.uint8)
+    cv2.drawContours(vis, [contour.astype(np.int32)], -1, 255, -1)
 
-    regions = []
+    dist = cv2.distanceTransform(vis, cv2.DIST_L2, 5)
+    _, max_val, _, max_loc = cv2.minMaxLoc(dist)
+    if max_val > 0:
+        x = float(max_loc[0])
+        y = float(max_loc[1])
+    else:
+        M = cv2.moments(contour)
+        if M["m00"] != 0:
+            x = M["m10"] / M["m00"]
+            y = M["m01"] / M["m00"]
+        else:
+            x, y = float(contour[0, 0]), float(contour[0, 1])
+    return ((max(x, _BORDER_PADDING), max(y, _BORDER_PADDING)), float(max_val))
+
+
+def _smooth_closed(pts: np.ndarray, iterations: int = 2) -> np.ndarray:
+    """Simplify (TC89) then Chaikin-smooth a closed contour.
+
+    Uses a fixed *epsilon* of 0.5 px so that shared boundaries between
+    adjacent regions are simplified *identically*, preventing 1–2 px gaps
+    after vector rendering.
+    """
+    pts_f32 = pts.astype(np.float32).reshape(-1, 1, 2)
+    epsilon = 0.5  # fixed — shared edges simplify identically
+    simplified = cv2.approxPolyDP(pts_f32, epsilon, True).reshape(-1, 2)
+    if len(simplified) >= 2 and not np.array_equal(simplified[0], simplified[-1]):
+        simplified = np.vstack([simplified, simplified[:1]])
+    if len(simplified) >= 4:
+        simplified = _chaikin_closed(simplified, iterations=iterations)
+    return simplified
+
+
+def extract_regions(labels: np.ndarray, palette) -> list[Region]:
+    """Extract every contour from the label map via vector contour model.
+
+    Uses ``RETR_CCOMP`` + ``CHAIN_APPROX_TC89_KCOS`` to obtain clean
+    exterior rings and holes, then smooths with closed‑polygon Chaikin.
+    Each ``Region`` carries both its exterior (``.contour``) and its
+    interior cut‑outs (``.holes``).
+    """
+    h, w = labels.shape
+    regions: list[Region] = []
+    _LETTER_COUNTER[0] = 0  # reset so labelling is deterministic
+
     for color in palette:
-        cluster_id = color.index - 1  # 0-based
+        cluster_id = color.index - 1
         mask = (labels == cluster_id).astype(np.uint8)
         if mask.sum() == 0:
             continue
 
         mask = clean_mask(mask)
-        contours, _ = cv2.findContours(
-            mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
 
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if area < min_px:
-                continue
-            moments = cv2.moments(contour)
-            if moments["m00"] == 0:
-                continue
-            cx = moments["m10"] / moments["m00"]
-            cy = moments["m01"] / moments["m00"]
-            epsilon = max(2.0, 0.01 * cv2.arcLength(contour, True))
-            approx = cv2.approxPolyDP(contour, epsilon, True).reshape(-1, 2)
-            iterations = 2 if area >= _SMALL_AREA else 1
-            smooth = organic_smooth(approx, iterations=iterations)
+        contours, hierarchy = cv2.findContours(
+            mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_TC89_KCOS
+        )
+        if hierarchy is None:
+            continue
+        hierarchy = hierarchy[0]
+
+        for i, contour in enumerate(contours):
+            if hierarchy[i][3] != -1:
+                continue  # hole — handled together with its parent
+
+            # Collect child holes.
+            holes: list[np.ndarray] = []
+            child = hierarchy[i][2]
+            while child >= 0:
+                holes.append(
+                    _smooth_closed(contours[child].reshape(-1, 2), iterations=1)
+                )
+                child = hierarchy[child][0]
+
+            exterior = _smooth_closed(contour.reshape(-1, 2), iterations=2)
+            centroid, max_radius = _pole_of_inaccessibility(exterior, (h, w))
+            label = _next_letter() if max_radius < _R_MIN_NUMERIC else str(color.index)
             regions.append(
                 Region(
                     color_index=color.index,
-                    area=int(area),
-                    centroid=(cx, cy),
-                    contour=smooth,
+                    area=int(cv2.contourArea(
+                        exterior.astype(np.float32).reshape(-1, 1, 2)
+                    )),
+                    centroid=centroid,
+                    label=label,
+                    contour=exterior,
+                    holes=holes,
                 )
             )
     return regions

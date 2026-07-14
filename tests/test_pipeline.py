@@ -30,4 +30,5 @@ def test_pipeline_downsamples_large_side():
     Image.fromarray(big).save(buf, format="PNG")
 
     data = render_data_from_image(buf.getvalue(), ConvertParams(palette_size=2, smoothing=0))
-    assert max(data.width, data.height) <= config.MAX_WORKING_SIDE
+    # 2‑px border on each side adds 4 to the working side.
+    assert max(data.width, data.height) <= config.MAX_WORKING_SIDE + 4

@@ -10,8 +10,8 @@ from pydantic import ValidationError
 
 from . import config
 from .models import ConvertParams
-from .pdf_layout import render_pdf
 from .pipeline import render_data_from_image
+from .visualize import render_visualization
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
@@ -67,8 +67,8 @@ async def convert(
         raise HTTPException(status_code=413, detail="File too large")
 
     data = render_data_from_image(contents, params)
-    pdf = render_pdf(data, params)
-    return Response(content=pdf, media_type="application/pdf")
+    png = render_visualization(data, params)
+    return Response(content=png, media_type="image/png")
 
 
 @app.get("/", response_class=HTMLResponse)

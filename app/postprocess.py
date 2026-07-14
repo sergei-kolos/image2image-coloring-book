@@ -10,6 +10,54 @@ _KERNEL_3 = np.ones((3, 3), np.uint8)
 _KERNEL_5 = np.ones((5, 5), np.uint8)
 
 
+def smooth_label_boundaries(labels: np.ndarray, sigma: float = 1.0) -> np.ndarray:
+    """Blur + re-quantize labels with adaptive sigma.
+
+    Where the boundary density is low (uniform zones like background or skin)
+    the full ``sigma`` is used, removing single-pixel noise islands and
+    smoothing jagged boundaries.
+
+    Where the boundary density is high (fine detail zones like eyes, nose,
+    whiskers) the sigma drops to ``detail_sigma = 0.3`` via a per-pixel
+    linear blend, preserving unique geometry.
+
+    Implementation: each label channel is blurred twice (full sigma, detail
+    sigma) and blended per-pixel based on the local fraction of boundary
+    pixels in a 15×15 sliding window.
+    """
+    n = int(labels.max()) + 1
+    if n < 2:
+        return labels
+
+    h, w = labels.shape
+    h_diff = (labels[:, :-1] != labels[:, 1:]).astype(np.uint8)
+    v_diff = (labels[:-1, :] != labels[1:, :]).astype(np.uint8)
+    boundary = np.zeros((h, w), dtype=np.uint8)
+    boundary[:, :-1] |= h_diff
+    boundary[:, 1:] |= h_diff
+    boundary[:-1, :] |= v_diff
+    boundary[1:, :] |= v_diff
+
+    density = cv2.boxFilter(boundary.astype(np.float32), -1, (15, 15))
+    t = np.clip((density - 0.08) / 0.12, 0.0, 1.0)
+    detail_sigma = 0.3
+
+    result = np.zeros_like(labels)
+    best = np.zeros(labels.shape, dtype=np.float32)
+
+    for i in range(n):
+        mask = (labels == i).astype(np.float32)
+        full_smooth = cv2.GaussianBlur(mask, (0, 0), sigma)
+        fine_smooth = cv2.GaussianBlur(mask, (0, 0), detail_sigma)
+        blended = full_smooth * (1.0 - t) + fine_smooth * t
+
+        update = blended > best
+        result[update] = i
+        np.maximum(best, blended, out=best)
+
+    return result
+
+
 def clean_mask(mask: np.ndarray) -> np.ndarray:
     """Advanced morphological cleaning of a binary region mask.
 
@@ -161,15 +209,26 @@ def adaptive_smooth(
     return smoothed
 
 
-def _detect_sharp_corners(pts: np.ndarray, max_angle_deg: float) -> np.ndarray:
+def _detect_sharp_corners(
+    pts: np.ndarray, max_angle_deg: float = 110, window: int = 1
+) -> np.ndarray:
     """Return boolean mask: True at points whose turn angle < max_angle_deg.
 
-    The turn angle is the angle between the vectors to the previous and next
-    points. A 90° rectangle corner has turn angle ≈ 90° (sharp, preserved).
+    The turn angle is the angle between the vectors from point P[i] to
+    P[i-window] and from P[i] to P[i+window].  Using window > 1 filters
+    out pixel-level staircasing while preserving true geometric corners.
+
+    A 90° rectangle corner has turn angle ≈ 90° (sharp, preserved).
     A point on a smooth curve has turn angle ≈ 180° (not preserved).
+    For boundary edges, pass ``window=3`` to filter out pixel staircasing
+    while preserving true geometry corners.
     """
-    prev = np.roll(pts, 1, axis=0)
-    nxt = np.roll(pts, -1, axis=0)
+    n = len(pts)
+    if n < window * 2 + 3:
+        window = 1
+
+    prev = np.roll(pts, window, axis=0)
+    nxt = np.roll(pts, -window, axis=0)
 
     v1 = prev - pts
     v2 = nxt - pts
@@ -263,3 +322,8 @@ def _chaikin_open(points: np.ndarray, iterations: int = 2) -> np.ndarray:
         new_pts[2:-1:2] = r
         pts = new_pts
     return pts
+
+
+
+
+

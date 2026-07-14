@@ -17,7 +17,7 @@ def _palette(n):
 
 def _data(width=200, height=100, palette_size=4):
     contour = np.array([[0, 0], [10, 0], [10, 10], [0, 10]], dtype=np.float32)
-    regions = [Region(color_index=1, area=100, centroid=(5.0, 5.0), contour=contour)]
+    regions = [Region(color_index=1, area=100, centroid=(5.0, 5.0), label="1", contour=contour)]
     return RenderData(width=width, height=height, palette=_palette(palette_size), regions=regions)
 
 

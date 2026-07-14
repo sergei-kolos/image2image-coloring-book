@@ -1,6 +1,8 @@
 const form = document.getElementById("convert-form");
 const statusEl = document.getElementById("status");
-const result = document.getElementById("result");
+const comparison = document.getElementById("comparison");
+const beforeImg = document.getElementById("before-img");
+const afterImg = document.getElementById("after-img");
 const palette = document.getElementById("palette_size");
 const paletteOut = document.getElementById("palette_out");
 const imageInput = document.getElementById("image");
@@ -8,16 +10,21 @@ const fileLabel = document.getElementById("file-label");
 const preview = document.getElementById("preview");
 const submitBtn = document.getElementById("submit");
 
+let originalUrl = null;
+
 palette.addEventListener("input", () => {
   paletteOut.textContent = palette.value;
 });
 
 imageInput.addEventListener("change", () => {
+  if (originalUrl) URL.revokeObjectURL(originalUrl);
   const file = imageInput.files[0];
   if (file) {
     fileLabel.textContent = file.name;
-    preview.src = URL.createObjectURL(file);
+    originalUrl = URL.createObjectURL(file);
+    preview.src = originalUrl;
     preview.hidden = false;
+    comparison.hidden = true;
   }
 });
 
@@ -34,7 +41,7 @@ form.addEventListener("submit", async (event) => {
 
   submitBtn.disabled = true;
   statusEl.textContent = "Обработка…";
-  result.hidden = true;
+  comparison.hidden = true;
 
   try {
     const response = await fetch("/api/convert", { method: "POST", body: formData });
@@ -43,9 +50,10 @@ form.addEventListener("submit", async (event) => {
       throw new Error("Ошибка " + response.status + ": " + text);
     }
     const blob = await response.blob();
-    result.src = URL.createObjectURL(blob);
-    result.hidden = false;
-    statusEl.textContent = "Готово. Можно скачать или распечатать из просмотра.";
+    beforeImg.src = originalUrl;
+    afterImg.src = URL.createObjectURL(blob);
+    comparison.hidden = false;
+    statusEl.textContent = "Готово.";
   } catch (err) {
     statusEl.textContent = err.message;
   } finally {

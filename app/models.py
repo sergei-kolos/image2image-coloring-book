@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -29,7 +29,9 @@ class Region:
     color_index: int          # 1-based, matches PaletteColor.index
     area: int                 # pixel area
     centroid: tuple           # (x, y) in image pixel coords
-    contour: object           # np.ndarray of shape (N, 2)
+    label: str                # display label (digit or letter for tiny zones)
+    contour: object           # np.ndarray of shape (N, 2) — exterior ring
+    holes: list = field(default_factory=list)  # list[np.ndarray] interior cut‑outs
 
 
 @dataclass

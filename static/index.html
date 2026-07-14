@@ -47,11 +47,20 @@
         </label>
       </fieldset>
 
-      <button type="submit" id="submit">Сгенерировать PDF</button>
+      <button type="submit" id="submit">Сгенерировать PNG</button>
       <p id="status" class="status"></p>
     </form>
 
-    <iframe id="result" class="result" hidden></iframe>
+    <div id="comparison" class="comparison" hidden>
+      <div class="panel">
+        <h3>До</h3>
+        <img id="before-img" alt="">
+      </div>
+      <div class="panel">
+        <h3>После</h3>
+        <img id="after-img" alt="">
+      </div>
+    </div>
   </main>
   <script src="/static/app.js"></script>
 </body>

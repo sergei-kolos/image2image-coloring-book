@@ -96,25 +96,67 @@ def render_pdf(data: RenderData, params: ConvertParams) -> bytes:
     geo = compute_layout(data, params)
     number_color = colors.black if params.number_color == "black" else _NUMBER_GRAY
 
+    # colour index → hex lookup
+    color_map = {pc.index: pc.hex for pc in data.palette}
+
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=(geo.page_w, geo.page_h))
 
-    # Region outlines (white fill + black stroke so the sheet is paintable).
+    # ── Pass 1: fill each region with its palette colour + stroke trapping ──
+    # Stroke-trapping: the stroke width (0.5 pt) makes the filled area extend
+    # slightly beyond the nominal boundary, so neighbouring regions physically
+    # overlap and no white paper shows through the gaps.
+    for region in data.regions:
+        fill_hex = color_map.get(region.color_index, "#000000")
+        fill_c = colors.HexColor(fill_hex)
+
+        c.setFillColor(fill_c)
+        c.setStrokeColor(fill_c)
+        c.setLineWidth(0.5)  # trapping width
+
+        # Compound path (exterior + holes) → even‑odd fill rule
+        path = c.beginPath()
+
+        pts = [_to_pdf_pt(geo, float(p[0]), float(p[1])) for p in region.contour]
+        if len(pts) >= 3:
+            path.moveTo(*pts[0])
+            for x, y in pts[1:]:
+                path.lineTo(x, y)
+            path.close()
+
+        for hole in region.holes:
+            pts = [_to_pdf_pt(geo, float(p[0]), float(p[1])) for p in hole]
+            if len(pts) >= 3:
+                path.moveTo(*pts[0])
+                for x, y in pts[1:]:
+                    path.lineTo(x, y)
+                path.close()
+
+        c.drawPath(path, fill=1, stroke=1, fillMode=1)  # even‑odd
+
+    # ── Pass 2: all black outlines in a single path ──
+    c.setStrokeColor(colors.black)
+    outline_width = max(0.5, params.line_thickness * 0.5)
+    c.setLineWidth(outline_width)
+
+    outlines = c.beginPath()
     for region in data.regions:
         pts = [_to_pdf_pt(geo, float(p[0]), float(p[1])) for p in region.contour]
-        if len(pts) < 2:
-            continue
-        path = c.beginPath()
-        path.moveTo(*pts[0])
-        for x, y in pts[1:]:
-            path.lineTo(x, y)
-        path.close()
-        c.setFillColor(colors.white)
-        c.setStrokeColor(colors.black)
-        c.setLineWidth(params.line_thickness)
-        c.drawPath(path, fill=1, stroke=1)
+        if len(pts) >= 2:
+            outlines.moveTo(*pts[0])
+            for x, y in pts[1:]:
+                outlines.lineTo(x, y)
+            outlines.close()
+        for hole in region.holes:
+            pts = [_to_pdf_pt(geo, float(p[0]), float(p[1])) for p in hole]
+            if len(pts) >= 2:
+                outlines.moveTo(*pts[0])
+                for x, y in pts[1:]:
+                    outlines.lineTo(x, y)
+                outlines.close()
+    c.drawPath(outlines, fill=0, stroke=1)
 
-    # Region numbers at centroids.
+    # ── Region labels at centroids ──
     if params.show_numbers:
         c.setFillColor(number_color)
         for region in data.regions:
@@ -123,7 +165,7 @@ def render_pdf(data: RenderData, params: ConvertParams) -> bytes:
             side = rendered_area_pt ** 0.5
             font_size = max(5.0, min(16.0, side * 0.4))
             c.setFont("Helvetica", font_size)
-            c.drawCentredString(cx, cy - font_size / 2, str(region.color_index))
+            c.drawCentredString(cx, cy - font_size / 2, region.label)
 
     _draw_legend(c, geo, data, params.number_color)
     c.showPage()
