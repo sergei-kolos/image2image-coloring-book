@@ -16,6 +16,7 @@ def render_data_from_image(image_bytes: bytes, params: ConvertParams) -> RenderD
     """Run the full conversion pipeline and return data ready for PDF rendering."""
     image = _load_and_normalize(image_bytes, params.smoothing)
     palette, labels = quantize(image, params.palette_size)
+    labels = _denoise_labels(labels)
     regions = extract_regions(labels, palette, params.min_region_area)
     return RenderData(
         width=image.shape[1],
@@ -37,7 +38,14 @@ def _load_and_normalize(image_bytes: bytes, smoothing: int) -> np.ndarray:
         image = cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)
 
     if smoothing > 0:
-        sigma = smoothing * 15
-        image = cv2.bilateralFilter(image, d=9, sigmaColor=sigma, sigmaSpace=sigma)
+        sp = max(1, smoothing * 2)
+        sr = max(10, smoothing * 10)
+        image = cv2.pyrMeanShiftFiltering(image, sp=sp, sr=sr)
 
     return image
+
+
+def _denoise_labels(labels: np.ndarray) -> np.ndarray:
+    """Remove salt-and-pepper noise from k-means label map via median filter."""
+    cleaned = cv2.medianBlur(labels.astype(np.uint8), 5)
+    return cleaned.astype(np.int32)
