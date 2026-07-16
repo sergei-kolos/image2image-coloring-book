@@ -4,6 +4,7 @@
 ```powershell
 .\.venv\Scripts\Activate.ps1            # activate venv (Windows)
 uvicorn app.main:app --reload            # dev server
+python -m pytest tests/ -q --tb=short   # all tests (48 pass)
 ```
 
 ## Architecture
@@ -12,6 +13,8 @@ uvicorn app.main:app --reload            # dev server
 - **`/api/convert` returns JSON** with base64-encoded colored PNG, outline PNG, and PDF.
 - Pipeline entrypoint: `render_data_from_image()` in `app/pipeline.py`.
 - **`detail_level` (1-15)** is the primary pipeline control. All pipeline parameters are derived from it via `ConvertParams.pipeline_params() → PipelineParams`.
+- **`color_merge_threshold` (0-100, default 15)** controls `merge_similar_colors()` — user-adjustable via UI slider.
+- **`palette_size` in `ConvertParams`** is ignored by `pipeline_params()` — `derived_palette` is computed from `detail_level` + `max_colors` cap.
 
 ## detail_level mapping (1=coarse, 15=finest)
 | Parameter | Level 1 | Level 15 |
@@ -20,7 +23,7 @@ uvicorn app.main:app --reload            # dev server
 | `mean_shift_sp` | 12 | 1 |
 | `mean_shift_sr` | 35 | 15 |
 | `felzenszwalb_scale` | 60 | 10 |
-| `palette_size` | 12 | 48 |
+| `palette_size` (derived) | 12 | 48 |
 | `min_region_area_pct` | 1.0% | ~0.05% |
 | `morph_kernel` | 5 | 0 (skip) |
 | `boundary_sigma` | 1.5 | 0.3 |
@@ -39,15 +42,28 @@ uvicorn app.main:app --reload            # dev server
 
 ## Key modules
 - `app/pipeline.py` — `render_data_from_image(image_bytes, params) → RenderData`. Uses `params.pipeline_params()` for all derived values.
-- `app/models.py` — `ConvertParams` (Pydantic, has `detail_level` + `pipeline_params()`), `PipelineParams` (dataclass of derived values), `Region`, `PaletteColor`, `RenderData`
-- `app/config.py` — paper sizes, thresholds, `MAX_PALETTE_SIZE = 64`, `MAX_WORKING_SIDE = 1600` (fallback)
-- `app/quantize.py` — k-means → `(palette, labels)` + `merge_similar_colors`
+- `app/models.py` — `ConvertParams` (Pydantic, has `detail_level` + `color_merge_threshold` + `pipeline_params()`), `PipelineParams` (dataclass of derived values), `Region`, `PaletteColor`, `RenderData`
+- `app/config.py` — paper sizes, `MAX_PALETTE_SIZE = 64`, upload limits. (`MAX_WORKING_SIDE = 1600` is dead code — `pipeline_params()` computes dynamically.)
+- `app/quantize.py` — k-means → `(palette, labels)` + `merge_similar_colors(threshold)`
 - `app/postprocess.py` — `merge_small_regions`, `smooth_label_boundaries`, `clean_mask(kernel_size)`, Chaikin/adaptive smoothing
 - `app/regions.py` — `extract_regions(labels, palette, morph_kernel)`, `_pole_of_inaccessibility`, `_simplify_only`, `_smooth_closed`
 - `app/pdf_layout.py` — `render_pdf` (ReportLab). Vector PDF with outlines, palette legend, region labels.
 - `app/visualize.py` — `render_visualization` (OpenCV PNG preview) + `render_outline` (outline-only PNG)
 
 ## API
-- `POST /api/convert` — multipart form: `image` file + `detail_level` (1-15, default 5) + other params. Returns JSON with colored, outline, pdf data URIs.
+- `POST /api/convert` — multipart form: `image` file + `detail_level` (1-15, default 5) + `color_merge_threshold` (0-100, default 15) + other params. Returns JSON with colored, outline, pdf data URIs.
 - `GET /api/health`
 - `GET /` — serves `static/index.html` (Liquid Glass dark theme UI)
+
+## Tests
+- `tests/conftest.py` — `make_two_color_array()` (100×100, red/blue halves) and `make_two_color_bytes()` (PNG bytes).
+- API tests use `httpx.TestClient`.
+- Pipeline tests call `render_data_from_image()` with `color_merge_threshold=80` (aggressive merge) for deterministic palette size.
+- `test_quantize.py` covers `merge_similar_colors()` (duplicates, close colors, reindexing).
+
+## Known issues (planned for feat/pipeline-v2)
+- k-means operates in RGB, not perceptual Lab space
+- `merge_similar_colors` uses RGB Euclidean distance, not CIEDE2000
+- `_apply_global_morphology` creates gaps between regions (independent per-color processing)
+- Mean-shift + CLAHE + unsharp can destroy fine details at low detail levels
+- See `SPEC_PIPELINE_V2.md` for improvement plan
