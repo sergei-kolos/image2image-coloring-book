@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 
 from .models import PaletteColor, Region
-from .postprocess import clean_mask, chaikin_smooth
+from .postprocess import clean_mask, chaikin_smooth, organic_smooth
 
 _BORDER_PADDING = 8        # px — clamp label positions away from edge
 _R_MIN_NUMERIC = 5.0       # px — smallest inscribed-circle radius that fits a number
@@ -76,16 +76,25 @@ def _pole_of_inaccessibility(contour: np.ndarray, shape: tuple) -> tuple[tuple[f
     return ((max(x, _BORDER_PADDING), max(y, _BORDER_PADDING)), float(max_val))
 
 
-def _simplify_only(pts: np.ndarray) -> np.ndarray:
-    """Simplify contour with approxPolyDP only — no Chaikin smoothing.
-    
-    Preserves original corner positions, preventing edge clipping.
+def _simplify_and_smooth(pts: np.ndarray) -> np.ndarray:
+    """Simplify with approxPolyDP then organic-smooth preserving corners.
+
+    approxPolyDP (epsilon=0.5) removes pixel staircasing while keeping real
+    geometry.  organic_smooth then rounds organic curves via Chaikin between
+    detected sharp corners, preserving structural corners exactly.
+
+    This prevents both edge clipping (corners stay put) and jagged contours
+    (organic segments get smoothed).
     """
     pts_f32 = pts.astype(np.float32).reshape(-1, 1, 2)
     epsilon = 0.5
     simplified = cv2.approxPolyDP(pts_f32, epsilon, True).reshape(-1, 2)
     if len(simplified) >= 2 and not np.array_equal(simplified[0], simplified[-1]):
         simplified = np.vstack([simplified, simplified[:1]])
+    if len(simplified) >= 4:
+        smoothed = organic_smooth(simplified, max_angle_deg=130, iterations=2)
+        if len(smoothed) >= 4:
+            return smoothed
     return simplified
 
 
@@ -146,7 +155,7 @@ def extract_regions(labels: np.ndarray, palette, morph_kernel: int = 3) -> list[
                 )
                 child = hierarchy[child][0]
 
-            exterior = _simplify_only(contour.reshape(-1, 2))
+            exterior = _simplify_and_smooth(contour.reshape(-1, 2))
             centroid, max_radius = _pole_of_inaccessibility(exterior, (h, w))
             label = _next_letter() if max_radius < _R_MIN_NUMERIC else str(color.index)
             regions.append(

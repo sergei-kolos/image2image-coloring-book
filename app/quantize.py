@@ -56,8 +56,9 @@ def merge_similar_colors(
 
         old_rgb = rgb_array[old_idx]
         old_to_new[old_idx] = new_index
-        new_colors.append(palette[old_idx].rgb)
 
+        # Collect all colors that will merge into this new entry
+        merged_rgbs = [old_rgb]
         for other_idx in range(old_idx + 1, len(palette)):
             if other_idx in old_to_new:
                 continue
@@ -65,6 +66,15 @@ def merge_similar_colors(
             dist = float(np.linalg.norm(old_rgb - other_rgb))
             if dist <= threshold:
                 old_to_new[other_idx] = new_index
+                merged_rgbs.append(other_rgb)
+
+        # Use centroid (mean) of all merged colors, not just the first
+        centroid_rgb = np.mean(merged_rgbs, axis=0)
+        new_colors.append((
+            int(round(centroid_rgb[0])),
+            int(round(centroid_rgb[1])),
+            int(round(centroid_rgb[2])),
+        ))
 
         new_index += 1
 

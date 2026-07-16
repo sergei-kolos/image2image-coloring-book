@@ -26,17 +26,11 @@ def render_data_from_image(image_bytes: bytes, params: ConvertParams) -> RenderD
     if pp.morph_kernel > 0:
         labels = _apply_global_morphology(labels, palette, pp.morph_kernel)
     regions = extract_regions(labels, palette, morph_kernel=pp.morph_kernel)
-    # Strip the 2px border added in _load_and_normalize
-    if pp.mean_shift_sp > 0:
-        regions = _strip_border_from_regions(regions, border=2)
-        width = image.shape[1] - 4
-        height = image.shape[0] - 4
-    else:
-        width = image.shape[1]
-        height = image.shape[0]
+    # Strip the 2px border added in _load_and_normalize (always added)
+    regions = _strip_border_from_regions(regions, border=2)
     return RenderData(
-        width=width,
-        height=height,
+        width=image.shape[1] - 4,
+        height=image.shape[0] - 4,
         palette=palette,
         regions=regions,
     )
