@@ -65,7 +65,7 @@ def test_merge_similar_colors_merges_close_colors():
     ]
     labels = np.array([[0, 1], [2, 2]], dtype=np.int32)
 
-    new_palette, new_labels = merge_similar_colors(palette, labels, threshold=5.0)
+    new_palette, new_labels = merge_similar_colors(palette, labels, threshold=2.0)
 
     assert len(new_palette) == 2
     assert new_labels[0, 0] == new_labels[0, 1]

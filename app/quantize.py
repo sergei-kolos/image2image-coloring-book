@@ -33,13 +33,14 @@ def quantize(image: np.ndarray, palette_size: int):
 def merge_similar_colors(
     palette: list[PaletteColor],
     labels: np.ndarray,
-    threshold: float = 15.0,
+    threshold: float = 5.0,
 ) -> tuple[list[PaletteColor], np.ndarray]:
-    """Merge palette entries that are within *threshold* Euclidean RGB distance.
+    """Merge palette entries that are within *threshold* CIEDE2000 distance.
 
     Duplicates (distance == 0) are always merged.  Similar colors are merged
-    using a greedy pass: the first colour in the palette acts as the "anchor",
-    and every subsequent colour within *threshold* is absorbed into it.
+    using a greedy pass: colours are sorted by luminance, then the first
+    colour anchors the group and all subsequent colours within *threshold*
+    are absorbed.
 
     Returns (new_palette, new_labels) with re-indexed 0-based labels.
     """
@@ -74,7 +75,7 @@ def merge_similar_colors(
             if other_idx in old_to_new:
                 continue
             other_rgb = rgb_array[other_idx]
-            dist = float(np.linalg.norm(old_rgb - other_rgb))
+            dist = _ciede2000(tuple(old_rgb.astype(int)), tuple(other_rgb.astype(int)))
             if dist <= threshold:
                 old_to_new[other_idx] = new_index
                 merged_rgbs.append(other_rgb)
@@ -98,6 +99,87 @@ def merge_similar_colors(
     new_labels = remap[labels]
 
     return new_palette, new_labels
+
+
+def _rgb_to_lab(rgb: tuple[int, int, int]) -> np.ndarray:
+    pixels = np.array([[rgb]], dtype=np.uint8)
+    return cv2.cvtColor(pixels, cv2.COLOR_RGB2LAB)[0, 0].astype(np.float64)
+
+
+def _ciede2000(rgb1: tuple[int, int, int], rgb2: tuple[int, int, int]) -> float:
+    """CIEDE2000 color difference between two RGB colors."""
+    lab1 = _rgb_to_lab(rgb1)
+    lab2 = _rgb_to_lab(rgb2)
+    L1, a1, b1 = lab1
+    L2, a2, b2 = lab2
+
+    kL = 1.0
+    kC = 1.0
+    kH = 1.0
+
+    C1 = np.sqrt(a1 ** 2 + b1 ** 2)
+    C2 = np.sqrt(a2 ** 2 + b2 ** 2)
+    C_avg = (C1 + C2) / 2.0
+
+    G = 0.5 * (1.0 - np.sqrt(C_avg ** 7 / (C_avg ** 7 + 25.0 ** 7)))
+    a1p = (1.0 + G) * a1
+    a2p = (1.0 + G) * a2
+    C1p = np.sqrt(a1p ** 2 + b1 ** 2)
+    C2p = np.sqrt(a2p ** 2 + b2 ** 2)
+
+    h1p = np.degrees(np.arctan2(b1, a1p)) % 360.0
+    h2p = np.degrees(np.arctan2(b2, a2p)) % 360.0
+
+    dLp = L2 - L1
+    dCp = C2p - C1p
+
+    if C1p * C2p == 0:
+        dhp = 0.0
+    else:
+        if abs(h2p - h1p) <= 180.0:
+            dhp = h2p - h1p
+        elif h2p - h1p > 180.0:
+            dhp = h2p - h1p - 360.0
+        else:
+            dhp = h2p - h1p + 360.0
+
+    dHp = 2.0 * np.sqrt(C1p * C2p) * np.sin(np.radians(dhp / 2.0))
+
+    L_avg = (L1 + L2) / 2.0
+    C_avg_p = (C1p + C2p) / 2.0
+
+    if C1p * C2p == 0:
+        h_avg_p = h1p + h2p
+    else:
+        if abs(h2p - h1p) <= 180.0:
+            h_avg_p = (h1p + h2p) / 2.0
+        elif h1p + h2p < 360.0:
+            h_avg_p = (h1p + h2p + 360.0) / 2.0
+        else:
+            h_avg_p = (h1p + h2p - 360.0) / 2.0
+
+    T = (
+        1.0
+        - 0.17 * np.cos(np.radians(h_avg_p - 30.0))
+        + 0.24 * np.cos(np.radians(2.0 * h_avg_p))
+        + 0.32 * np.cos(np.radians(3.0 * h_avg_p + 6.0))
+        - 0.20 * np.cos(np.radians(4.0 * h_avg_p - 63.0))
+    )
+
+    dTheta = 30.0 * np.exp(-((h_avg_p - 275.0) / 25.0) ** 2)
+    RC = 2.0 * np.sqrt(C_avg_p ** 7 / (C_avg_p ** 7 + 25.0 ** 7))
+    SL = 1.0 + (0.015 * (L_avg - 50.0) ** 2) / np.sqrt(20.0 + (L_avg - 50.0) ** 2)
+    SC = 1.0 + 0.045 * C_avg_p
+    SH = 1.0 + 0.015 * C_avg_p * T
+
+    RT = -np.sin(np.radians(2.0 * dTheta)) * RC
+
+    return np.sqrt(
+        (dLp / (kL * SL)) ** 2
+        + (dCp / (kC * SC)) ** 2
+        + (dHp / (kH * SH)) ** 2
+        + RT * (dCp / (kC * SC)) * (dHp / (kH * SH))
+    )
 
 
 def _to_hex(rgb) -> str:

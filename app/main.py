@@ -41,7 +41,7 @@ async def _form_params(
     min_region_area: float = Form(0.5),
     smoothing: int = Form(5),
     line_thickness: float = Form(1.0),
-    color_merge_threshold: float = Form(15.0),
+    color_merge_threshold: float = Form(5.0),
     paper_size: str = Form("A4"),
     orientation: str = Form("auto"),
     show_numbers: bool = Form(True),

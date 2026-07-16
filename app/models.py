@@ -13,7 +13,7 @@ class ConvertParams(BaseModel):
     min_region_area: float = Field(default=0.5, ge=0.1, le=10.0)
     smoothing: int = Field(default=5, ge=0, le=10)
     line_thickness: float = Field(default=1.0, ge=0.5, le=3.0)
-    color_merge_threshold: float = Field(default=15.0, ge=0.0, le=100.0)
+    color_merge_threshold: float = Field(default=5.0, ge=0.0, le=30.0)
     paper_size: Literal["A3", "A4", "A5", "Letter", "Legal"] = "A4"
     orientation: Literal["auto", "portrait", "landscape"] = "auto"
     show_numbers: bool = True
