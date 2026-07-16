@@ -13,8 +13,8 @@
   --text-primary: rgba(255, 255, 255, 0.92);
   --text-secondary: rgba(255, 255, 255, 0.60);
   --text-muted: rgba(255, 255, 255, 0.40);
-  --accent: #5b9cf5;
-  --accent-glow: rgba(91, 156, 245, 0.25);
+  --accent: #374151;
+  --accent-glow: rgba(55, 65, 81, 0.30);
   --input-bg: rgba(255, 255, 255, 0.06);
   --input-border: rgba(255, 255, 255, 0.12);
   --input-focus: rgba(255, 255, 255, 0.20);
@@ -35,8 +35,8 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 60% at 20% 20%, rgba(91, 156, 245, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 60% at 20% 20%, rgba(55, 65, 81, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(55, 65, 81, 0.05) 0%, transparent 60%);
   pointer-events: none;
   z-index: 0;
 }
@@ -285,7 +285,7 @@ button {
 button:hover {
   background: rgba(255, 255, 255, 0.10);
   border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 0 20px rgba(91, 156, 245, 0.10);
+  box-shadow: 0 0 20px rgba(55, 65, 81, 0.10);
 }
 
 button:disabled {
@@ -294,16 +294,16 @@ button:disabled {
 }
 
 #submit {
-  background: linear-gradient(135deg, rgba(91, 156, 245, 0.20), rgba(139, 92, 246, 0.15));
-  border: 1px solid rgba(91, 156, 245, 0.35);
-  box-shadow: 0 0 24px rgba(91, 156, 245, 0.12);
+  background: linear-gradient(135deg, rgba(55, 65, 81, 0.20), rgba(55, 65, 81, 0.15));
+  border: 1px solid rgba(55, 65, 81, 0.35);
+  box-shadow: 0 0 24px rgba(55, 65, 81, 0.12);
   color: var(--text-primary);
 }
 
 #submit:hover {
-  background: linear-gradient(135deg, rgba(91, 156, 245, 0.30), rgba(139, 92, 246, 0.22));
-  border-color: rgba(91, 156, 245, 0.50);
-  box-shadow: 0 0 32px rgba(91, 156, 245, 0.20);
+  background: linear-gradient(135deg, rgba(55, 65, 81, 0.30), rgba(55, 65, 81, 0.22));
+  border-color: rgba(55, 65, 81, 0.50);
+  box-shadow: 0 0 32px rgba(55, 65, 81, 0.20);
 }
 
 /* ---- status ---- */
