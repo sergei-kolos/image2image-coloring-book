@@ -66,7 +66,12 @@ def _load_and_normalize(image_bytes: bytes, pp: PipelineParams) -> np.ndarray:
 
 def _segment_and_flatten(image: np.ndarray, pp: PipelineParams) -> np.ndarray:
     sigma = 0.5
-    min_size = max(10, int(image.shape[0] * image.shape[1] * 0.00005))
+    h, w = image.shape[:2]
+    area = h * w
+
+    # Use smaller min_size to preserve fine details, then let merge_small_regions
+    # clean up noise in uniform zones (it already does color-similarity merging).
+    min_size = max(5, int(area * 0.00002))
 
     segments = felzenszwalb(
         image, scale=pp.felzenszwalb_scale, sigma=sigma, min_size=min_size
