@@ -47,7 +47,7 @@ def _load_and_normalize(image_bytes: bytes, pp: PipelineParams) -> np.ndarray:
         new_size = (int(w * scale), int(h * scale))
         image = cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)
 
-    if pp.mean_shift_sp > 0:
+    if pp.mean_shift_sp > 1:
         image = cv2.pyrMeanShiftFiltering(
             image, sp=pp.mean_shift_sp, sr=pp.mean_shift_sr
         )
