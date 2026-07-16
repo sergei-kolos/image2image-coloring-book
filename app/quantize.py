@@ -46,6 +46,15 @@ def merge_similar_colors(
     if len(palette) < 2:
         return palette, labels
 
+    # Sort palette by luminance (L* in Lab) for deterministic merge order
+    rgb_arr = np.array([[c.rgb for c in palette]], dtype=np.uint8)
+    lab_arr = cv2.cvtColor(rgb_arr, cv2.COLOR_RGB2LAB)
+    sort_order = np.argsort(lab_arr[0, :, 0])
+    palette = [palette[i] for i in sort_order]
+    remap_sorted = np.zeros(len(palette), dtype=np.int32)
+    remap_sorted[sort_order] = np.arange(len(palette))
+    labels = remap_sorted[labels]
+
     rgb_array = np.array([c.rgb for c in palette], dtype=np.float64)
 
     old_to_new: dict[int, int] = {}
