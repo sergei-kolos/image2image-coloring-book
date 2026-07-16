@@ -23,8 +23,6 @@ def render_data_from_image(image_bytes: bytes, params: ConvertParams) -> RenderD
     min_area_px = int(image.shape[0] * image.shape[1] * pp.min_region_area_pct / 100)
     labels = merge_small_regions(labels, palette, min_area_px)
     labels = smooth_label_boundaries(labels, sigma=pp.boundary_sigma)
-    if pp.morph_kernel > 0:
-        labels = _apply_global_morphology(labels, palette, pp.morph_kernel)
     regions = extract_regions(labels, palette, morph_kernel=pp.morph_kernel)
     # Strip the 2px border added in _load_and_normalize (always added)
     regions = _strip_border_from_regions(regions, border=2)
