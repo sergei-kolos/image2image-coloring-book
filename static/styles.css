@@ -16,53 +16,77 @@ body {
 }
 
 .container {
-  max-width: 720px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 24px 16px 64px;
+  padding: 32px 24px 96px;
 }
 
-h1 { margin: 0 0 16px; }
+h1 { margin: 0 0 24px; font-size: 28px; }
 
-form { display: flex; flex-direction: column; gap: 16px; }
+form { display: flex; flex-direction: column; gap: 20px; }
 
 .file {
-  display: flex; align-items: center; gap: 12px;
-  padding: 14px; background: var(--panel);
-  border: 1px dashed var(--border); border-radius: 10px; cursor: pointer;
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px; background: var(--panel);
+  border: 1px dashed var(--border); border-radius: 12px; cursor: pointer;
+  font-size: 16px;
+}
+
+.file .file-btn {
+  padding: 8px 14px;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  font-weight: 500;
+}
+
+.file .file-name {
+  color: #666;
 }
 
 .preview img {
-  max-width: 100%; max-height: 260px; border-radius: 8px;
+  max-width: 100%; max-height: 520px; border-radius: 10px;
   border: 1px solid var(--border);
 }
 
 .params {
-  border: 1px solid var(--border); border-radius: 10px;
-  background: var(--panel); padding: 16px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--panel); padding: 20px;
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
 }
-.params legend { padding: 0 6px; font-weight: 600; }
-.params label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.params legend { padding: 0 8px; font-weight: 600; font-size: 16px; }
+.params label { display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
 
-input, select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
+input, select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; }
 
 button {
-  align-self: flex-start; padding: 12px 20px; font-size: 16px;
-  background: var(--accent); color: white; border: none; border-radius: 8px;
+  align-self: flex-start; padding: 14px 28px; font-size: 18px;
+  background: var(--accent); color: white; border: none; border-radius: 10px;
   cursor: pointer;
 }
 button:disabled { opacity: 0.6; cursor: progress; }
 
-.status { min-height: 1.2em; color: #444; }
+.status { min-height: 1.4em; color: #444; font-size: 16px; }
 
 .comparison {
-  display: flex; gap: 16px; margin-top: 16px;
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 24px;
 }
 .comparison .panel {
-  flex: 1; min-width: 0;
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px;
+  min-width: 0;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px;
 }
-.comparison .panel h3 { margin: 0 0 8px; font-size: 14px; }
+.comparison .panel h3 { margin: 0 0 12px; font-size: 16px; }
 .comparison .panel img {
-  width: 100%; height: auto; display: block; border-radius: 6px;
+  width: 100%; height: auto; display: block; border-radius: 8px;
 }
+
+.downloads {
+  margin-top: 20px;
+  display: flex; gap: 12px;
+}
+
+.dl-btn, .dl-img {
+  padding: 10px 20px; font-size: 15px;
+  background: var(--accent); color: white; border: none; border-radius: 8px;
+  cursor: pointer; margin-top: 12px;
+}
+.dl-btn:hover, .dl-img:hover { opacity: 0.85; }

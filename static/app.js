@@ -11,6 +11,7 @@ const colorMerge = document.getElementById("color_merge_threshold");
 const colorMergeOut = document.getElementById("color_merge_out");
 const imageInput = document.getElementById("image");
 const fileLabel = document.getElementById("file-label");
+const fileName = fileLabel.querySelector(".file-name");
 const preview = document.getElementById("preview");
 const submitBtn = document.getElementById("submit");
 const downloads = document.getElementById("downloads");
@@ -35,7 +36,7 @@ imageInput.addEventListener("change", () => {
   if (originalUrl) URL.revokeObjectURL(originalUrl);
   const file = imageInput.files[0];
   if (file) {
-    fileLabel.textContent = file.name;
+    fileName.textContent = file.name;
     originalUrl = URL.createObjectURL(file);
     preview.src = originalUrl;
     preview.hidden = false;
