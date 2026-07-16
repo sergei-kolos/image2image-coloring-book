@@ -5,10 +5,6 @@ pillow
 numpy
 scikit-image
 scipy
-shapely
 reportlab
 python-multipart
 pydantic
-pytest
-pytest-cov
-httpx

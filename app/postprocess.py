@@ -7,7 +7,6 @@ from scipy.ndimage import gaussian_filter1d
 from .models import PaletteColor
 
 _KERNEL_3 = np.ones((3, 3), np.uint8)
-_KERNEL_5 = np.ones((5, 5), np.uint8)
 
 
 def smooth_label_boundaries(labels: np.ndarray, sigma: float = 1.0) -> np.ndarray:
@@ -58,17 +57,16 @@ def smooth_label_boundaries(labels: np.ndarray, sigma: float = 1.0) -> np.ndarra
     return result
 
 
-def clean_mask(mask: np.ndarray) -> np.ndarray:
-    """Advanced morphological cleaning of a binary region mask.
-
-    Pipeline: median blur -> morphological open (remove spikes/needles) ->
-    morphological close (fill holes) -> Gaussian blur + re-threshold
-    (smooth pixel-level staircasing into paintable boundaries).
-    """
-    mask = cv2.medianBlur(mask, 5)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, _KERNEL_3)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, _KERNEL_5)
-    blurred = cv2.GaussianBlur(mask.astype(np.float32), (5, 5), 0)
+def clean_mask(mask: np.ndarray, kernel_size: int = 3) -> np.ndarray:
+    k = max(1, kernel_size)
+    median_k = k if k % 2 == 1 else k + 1
+    mask = cv2.medianBlur(mask, median_k)
+    kernel_o = np.ones((k, k), np.uint8)
+    kernel_c = np.ones((k + 2, k + 2), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_o)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_c)
+    blur_k = k + 2 if (k + 2) % 2 == 1 else k + 3
+    blurred = cv2.GaussianBlur(mask.astype(np.float32), (blur_k, blur_k), 0)
     return (blurred > 0.5).astype(np.uint8)
 
 
