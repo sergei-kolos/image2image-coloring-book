@@ -17,11 +17,13 @@
 
       <fieldset class="params">
         <legend>Параметры</legend>
-        <label>Цветов: <output id="palette_out">16</output>
-          <input type="range" id="palette_size" name="palette_size" min="2" max="64" value="16"></label>
-        <label>Мин. область (%): <input type="number" name="min_region_area" min="0.1" max="10" step="0.1" value="0.5"></label>
-        <label>Сглаживание: <input type="range" name="smoothing" min="0" max="10" value="5"></label>
+        <label>Детализация: <output id="detail_out">5</output>
+          <input type="range" id="detail_level" name="detail_level" min="1" max="15" value="5"></label>
+        <label>Макс. цветов: <output id="max_colors_out">64</output>
+          <input type="range" id="max_colors" name="max_colors" min="2" max="64" value="64"></label>
         <label>Толщина линий: <input type="number" name="line_thickness" min="0.5" max="3" step="0.1" value="1.0"></label>
+        <label>Слияние цветов: <output id="color_merge_out">15</output>
+          <input type="range" id="color_merge_threshold" name="color_merge_threshold" min="0" max="80" step="1" value="15"></label>
         <label>Формат:
           <select name="paper_size">
             <option>A3</option>
@@ -47,18 +49,24 @@
         </label>
       </fieldset>
 
-      <button type="submit" id="submit">Сгенерировать PNG</button>
+      <button type="submit" id="submit">Сгенерировать</button>
       <p id="status" class="status"></p>
     </form>
 
+    <div id="downloads" class="downloads" hidden>
+      <button type="button" id="dl-pdf" class="dl-btn">Скачать PDF</button>
+    </div>
+
     <div id="comparison" class="comparison" hidden>
       <div class="panel">
-        <h3>До</h3>
-        <img id="before-img" alt="">
+        <h3>С раскраской</h3>
+        <img id="after-img" alt="">
+        <button type="button" class="dl-img" data-target="after-img">Скачать PNG</button>
       </div>
       <div class="panel">
-        <h3>После</h3>
-        <img id="after-img" alt="">
+        <h3>Только контуры</h3>
+        <img id="outline-img" alt="">
+        <button type="button" class="dl-img" data-target="outline-img">Скачать PNG</button>
       </div>
     </div>
   </main>

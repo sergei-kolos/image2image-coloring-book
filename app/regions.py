@@ -76,6 +76,19 @@ def _pole_of_inaccessibility(contour: np.ndarray, shape: tuple) -> tuple[tuple[f
     return ((max(x, _BORDER_PADDING), max(y, _BORDER_PADDING)), float(max_val))
 
 
+def _simplify_only(pts: np.ndarray) -> np.ndarray:
+    """Simplify contour with approxPolyDP only — no Chaikin smoothing.
+    
+    Preserves original corner positions, preventing edge clipping.
+    """
+    pts_f32 = pts.astype(np.float32).reshape(-1, 1, 2)
+    epsilon = 0.5
+    simplified = cv2.approxPolyDP(pts_f32, epsilon, True).reshape(-1, 2)
+    if len(simplified) >= 2 and not np.array_equal(simplified[0], simplified[-1]):
+        simplified = np.vstack([simplified, simplified[:1]])
+    return simplified
+
+
 def _smooth_closed(pts: np.ndarray, iterations: int = 2) -> np.ndarray:
     """Simplify (TC89) then Chaikin-smooth a closed contour.
 
@@ -93,7 +106,7 @@ def _smooth_closed(pts: np.ndarray, iterations: int = 2) -> np.ndarray:
     return simplified
 
 
-def extract_regions(labels: np.ndarray, palette) -> list[Region]:
+def extract_regions(labels: np.ndarray, palette, morph_kernel: int = 3) -> list[Region]:
     """Extract every contour from the label map via vector contour model.
 
     Uses ``RETR_CCOMP`` + ``CHAIN_APPROX_TC89_KCOS`` to obtain clean
@@ -111,7 +124,7 @@ def extract_regions(labels: np.ndarray, palette) -> list[Region]:
         if mask.sum() == 0:
             continue
 
-        mask = clean_mask(mask)
+        mask = clean_mask(mask, kernel_size=max(1, morph_kernel))
 
         contours, hierarchy = cv2.findContours(
             mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_TC89_KCOS
@@ -133,7 +146,7 @@ def extract_regions(labels: np.ndarray, palette) -> list[Region]:
                 )
                 child = hierarchy[child][0]
 
-            exterior = _smooth_closed(contour.reshape(-1, 2), iterations=2)
+            exterior = _simplify_only(contour.reshape(-1, 2))
             centroid, max_radius = _pole_of_inaccessibility(exterior, (h, w))
             label = _next_letter() if max_radius < _R_MIN_NUMERIC else str(color.index)
             regions.append(
