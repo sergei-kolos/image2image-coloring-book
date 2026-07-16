@@ -102,41 +102,10 @@ def render_pdf(data: RenderData, params: ConvertParams) -> bytes:
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=(geo.page_w, geo.page_h))
 
-    # ── Pass 1: fill each region with its palette colour + stroke trapping ──
-    # Stroke-trapping: the stroke width (0.5 pt) makes the filled area extend
-    # slightly beyond the nominal boundary, so neighbouring regions physically
-    # overlap and no white paper shows through the gaps.
-    for region in data.regions:
-        fill_hex = color_map.get(region.color_index, "#000000")
-        fill_c = colors.HexColor(fill_hex)
-
-        c.setFillColor(fill_c)
-        c.setStrokeColor(fill_c)
-        c.setLineWidth(0.5)  # trapping width
-
-        # Compound path (exterior + holes) → even‑odd fill rule
-        path = c.beginPath()
-
-        pts = [_to_pdf_pt(geo, float(p[0]), float(p[1])) for p in region.contour]
-        if len(pts) >= 3:
-            path.moveTo(*pts[0])
-            for x, y in pts[1:]:
-                path.lineTo(x, y)
-            path.close()
-
-        for hole in region.holes:
-            pts = [_to_pdf_pt(geo, float(p[0]), float(p[1])) for p in hole]
-            if len(pts) >= 3:
-                path.moveTo(*pts[0])
-                for x, y in pts[1:]:
-                    path.lineTo(x, y)
-                path.close()
-
-        c.drawPath(path, fill=1, stroke=1, fillMode=1)  # even‑odd
-
-    # ── Pass 2: all black outlines in a single path ──
-    c.setStrokeColor(colors.black)
-    outline_width = max(0.5, params.line_thickness * 0.5)
+    # ── Pass 1: outlines only (no colour fill — this is a coloring book) ──
+    outline_color = colors.black if params.number_color == "black" else _NUMBER_GRAY
+    c.setStrokeColor(outline_color)
+    outline_width = max(0.5, params.line_thickness * 1.0)
     c.setLineWidth(outline_width)
 
     outlines = c.beginPath()
@@ -163,7 +132,9 @@ def render_pdf(data: RenderData, params: ConvertParams) -> bytes:
             cx, cy = _to_pdf_pt(geo, region.centroid[0], region.centroid[1])
             rendered_area_pt = region.area * geo.scale * geo.scale
             side = rendered_area_pt ** 0.5
-            font_size = max(5.0, min(16.0, side * 0.4))
+            # Cap font size by both region side and label width
+            label_w_factor = max(1.0, len(region.label) * 0.55)
+            font_size = max(3.0, min(16.0, side * 0.7 / label_w_factor))
             c.setFont("Helvetica", font_size)
             c.drawCentredString(cx, cy - font_size / 2, region.label)
 
