@@ -13,7 +13,7 @@ python -m pytest tests/ -q --tb=short   # all tests (48 pass)
 - **`/api/convert` returns JSON** with base64-encoded colored PNG, outline PNG, and PDF.
 - Pipeline entrypoint: `render_data_from_image()` in `app/pipeline.py`.
 - **`detail_level` (1-15)** is the primary pipeline control. All pipeline parameters are derived from it via `ConvertParams.pipeline_params() → PipelineParams`.
-- **`color_merge_threshold` (0-100, default 15)** controls `merge_similar_colors()` — user-adjustable via UI slider.
+- **`color_merge_threshold` (0-30, default 5)** controls `merge_similar_colors()` — user-adjustable via UI slider. Uses CIEDE2000 distance.
 - **`palette_size` in `ConvertParams`** is ignored by `pipeline_params()` — `derived_palette` is computed from `detail_level` + `max_colors` cap.
 
 ## detail_level mapping (1=coarse, 15=finest)
@@ -51,7 +51,7 @@ python -m pytest tests/ -q --tb=short   # all tests (48 pass)
 - `app/visualize.py` — `render_visualization` (OpenCV PNG preview) + `render_outline` (outline-only PNG)
 
 ## API
-- `POST /api/convert` — multipart form: `image` file + `detail_level` (1-15, default 5) + `color_merge_threshold` (0-100, default 15) + other params. Returns JSON with colored, outline, pdf data URIs.
+- `POST /api/convert` — multipart form: `image` file + `detail_level` (1-15, default 5) + `color_merge_threshold` (0-30, default 5) + other params. Returns JSON with colored, outline, pdf data URIs.
 - `GET /api/health`
 - `GET /` — serves `static/index.html` (Liquid Glass dark theme UI)
 
@@ -62,8 +62,10 @@ python -m pytest tests/ -q --tb=short   # all tests (48 pass)
 - `test_quantize.py` covers `merge_similar_colors()` (duplicates, close colors, reindexing).
 
 ## Known issues (planned for feat/pipeline-v2)
-- k-means operates in RGB, not perceptual Lab space
-- `merge_similar_colors` uses RGB Euclidean distance, not CIEDE2000
-- `_apply_global_morphology` creates gaps between regions (independent per-color processing)
-- Mean-shift + CLAHE + unsharp can destroy fine details at low detail levels
-- See `SPEC_PIPELINE_V2.md` for improvement plan
+- ~~k-means operates in RGB, not perceptual Lab space~~ → fixed in feat/pipeline-v2
+- ~~`merge_similar_colors` uses RGB Euclidean distance, not CIEDE2000~~ → fixed in feat/pipeline-v2
+- ~~`_apply_global_morphology` creates gaps between regions~~ → removed in feat/pipeline-v2
+- ~~Mean-shift + CLAHE + unsharp can destroy fine details~~ → skipped at high detail in feat/pipeline-v2
+- Felzenszwalb min_size is fixed, not edge-aware (improved but not fully solved)
+- `clean_mask` in `extract_regions` still processes each color independently
+- See `SPEC_PIPELINE_V2.md` for remaining improvements
