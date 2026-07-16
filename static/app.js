@@ -66,7 +66,7 @@ document.addEventListener("click", (e) => {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!imageInput.files[0]) {
-    statusEl.textContent = "Сначала выберите изображение.";
+    statusEl.textContent = "Please select an image first.";
     return;
   }
 
@@ -75,7 +75,7 @@ form.addEventListener("submit", async (event) => {
   formData.set("show_numbers", numbersChecked ? "true" : "false");
 
   submitBtn.disabled = true;
-  statusEl.textContent = "Обработка…";
+  statusEl.textContent = "Processing\u2026";
   comparison.hidden = true;
   downloads.hidden = true;
 
@@ -83,7 +83,7 @@ form.addEventListener("submit", async (event) => {
     const response = await fetch("/api/convert", { method: "POST", body: formData });
     if (!response.ok) {
       const text = await response.text();
-      throw new Error("Ошибка " + response.status + ": " + text);
+      throw new Error("Error " + response.status + ": " + text);
     }
     const result = await response.json();
     afterImg.src = result.colored;
@@ -91,7 +91,7 @@ form.addEventListener("submit", async (event) => {
     pdfDataUri = result.pdf || null;
     comparison.hidden = false;
     if (pdfDataUri) downloads.hidden = false;
-    statusEl.textContent = "Готово.";
+    statusEl.textContent = "Done.";
   } catch (err) {
     statusEl.textContent = err.message;
   } finally {

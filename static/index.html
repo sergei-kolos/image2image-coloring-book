@@ -1,30 +1,30 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Картины по номерам</title>
+  <title>Paint by Numbers</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <main class="container">
-    <h1>Картины по номерам</h1>
+    <h1>Paint by Numbers</h1>
     <form id="convert-form">
       <label class="file">
         <input type="file" id="image" name="image" accept="image/png,image/jpeg,image/webp" required>
-        <span id="file-label">Выберите изображение</span>
+        <span id="file-label">Choose an image</span>
       </label>
       <div class="preview"><img id="preview" alt="" hidden></div>
 
       <fieldset class="params">
-        <legend>Параметры</legend>
-        <label>Детализация: <output id="detail_out">5</output>
+        <legend>Parameters</legend>
+        <label title="More detail creates smaller, more precise regions. Lower detail creates larger, simpler regions.">Detail: <output id="detail_out">5</output>
           <input type="range" id="detail_level" name="detail_level" min="1" max="15" value="5"></label>
-        <label>Макс. цветов: <output id="max_colors_out">64</output>
+        <label title="Maximum number of colors in the output palette.">Max colors: <output id="max_colors_out">64</output>
           <input type="range" id="max_colors" name="max_colors" min="2" max="64" value="64"></label>
-        <label>Толщина линий: <input type="number" name="line_thickness" min="0.5" max="3" step="0.1" value="1.0"></label>
-        <label>Слияние цветов: <output id="color_merge_out">15</output>
+        <label title="Line stroke width in the output.">Line thickness: <input type="number" name="line_thickness" min="0.5" max="3" step="0.1" value="1.0"></label>
+        <label title="Merge similar colors into one. Higher values merge more aggressively, reducing total colors. 0 = off.">Color merge: <output id="color_merge_out">15</output>
           <input type="range" id="color_merge_threshold" name="color_merge_threshold" min="0" max="80" step="1" value="15"></label>
-        <label>Формат:
+        <label title="Paper size for the output.">Paper:
           <select name="paper_size">
             <option>A3</option>
             <option selected>A4</option>
@@ -33,15 +33,15 @@
             <option>Legal</option>
           </select>
         </label>
-        <label>Ориентация:
+        <label title="Page orientation. Auto picks portrait or landscape based on image dimensions.">Orientation:
           <select name="orientation">
             <option value="auto" selected>auto</option>
             <option value="portrait">portrait</option>
             <option value="landscape">landscape</option>
           </select>
         </label>
-        <label>Номера: <input type="checkbox" name="show_numbers" checked></label>
-        <label>Цвет номеров:
+        <label title="Show number labels inside each region.">Numbers: <input type="checkbox" name="show_numbers" checked></label>
+        <label title="Color of the number labels and outlines.">Label color:
           <select name="number_color">
             <option value="black" selected>black</option>
             <option value="gray">gray</option>
@@ -49,24 +49,24 @@
         </label>
       </fieldset>
 
-      <button type="submit" id="submit">Сгенерировать</button>
+      <button type="submit" id="submit">Generate</button>
       <p id="status" class="status"></p>
     </form>
 
     <div id="downloads" class="downloads" hidden>
-      <button type="button" id="dl-pdf" class="dl-btn">Скачать PDF</button>
+      <button type="button" id="dl-pdf" class="dl-btn">Download PDF</button>
     </div>
 
     <div id="comparison" class="comparison" hidden>
       <div class="panel">
-        <h3>С раскраской</h3>
+        <h3>Colored</h3>
         <img id="after-img" alt="">
-        <button type="button" class="dl-img" data-target="after-img">Скачать PNG</button>
+        <button type="button" class="dl-img" data-target="after-img">Download PNG</button>
       </div>
       <div class="panel">
-        <h3>Только контуры</h3>
+        <h3>Outline only</h3>
         <img id="outline-img" alt="">
-        <button type="button" class="dl-img" data-target="outline-img">Скачать PNG</button>
+        <button type="button" class="dl-img" data-target="outline-img">Download PNG</button>
       </div>
     </div>
   </main>
