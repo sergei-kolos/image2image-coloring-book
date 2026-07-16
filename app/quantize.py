@@ -8,19 +8,21 @@ from .models import PaletteColor
 
 def quantize(image: np.ndarray, palette_size: int):
     h, w = image.shape[:2]
-    pixels = image.reshape(-1, 3).astype(np.float32)
+    lab = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
+    pixels = lab.reshape(-1, 3).astype(np.float32)
 
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
-    _, labels_flat, centers = cv2.kmeans(
+    _, labels_flat, centers_lab = cv2.kmeans(
         pixels, palette_size, None, criteria, 3, cv2.KMEANS_PP_CENTERS
     )
-    centers = centers.astype(np.uint8)
+    centers_lab = centers_lab.reshape(-1, 1, 3).astype(np.uint8)
+    centers_rgb = cv2.cvtColor(centers_lab, cv2.COLOR_LAB2RGB).reshape(-1, 3)
 
     palette = [
         PaletteColor(
             index=i + 1,
-            hex=_to_hex(centers[i]),
-            rgb=(int(centers[i][0]), int(centers[i][1]), int(centers[i][2])),
+            hex=_to_hex(centers_rgb[i]),
+            rgb=(int(centers_rgb[i][0]), int(centers_rgb[i][1]), int(centers_rgb[i][2])),
         )
         for i in range(palette_size)
     ]
