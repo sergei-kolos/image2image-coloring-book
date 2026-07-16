@@ -8,3 +8,6 @@ scipy
 reportlab
 python-multipart
 pydantic
+pytest
+pytest-cov
+httpx
