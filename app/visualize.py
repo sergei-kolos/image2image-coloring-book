@@ -6,13 +6,18 @@ import numpy as np
 from .models import ConvertParams, RenderData
 
 
-def _draw_boundaries(vis: np.ndarray, regions, thickness: int, edge_color):
-    for region in regions:
-        ext = region.contour.astype(np.int32).reshape(-1, 1, 2)
-        cv2.polylines(vis, [ext], isClosed=True, color=edge_color, thickness=thickness)
-        for hole in region.holes:
-            h = hole.astype(np.int32).reshape(-1, 1, 2)
-            cv2.polylines(vis, [h], isClosed=True, color=edge_color, thickness=thickness)
+def _draw_boundaries(vis: np.ndarray, regions, thickness: int, edge_color, edges=None):
+    if edges:
+        for edge in edges:
+            pts = edge.polyline.astype(np.int32).reshape(-1, 1, 2)
+            cv2.polylines(vis, [pts], isClosed=False, color=edge_color, thickness=thickness)
+    else:
+        for region in regions:
+            ext = region.contour.astype(np.int32).reshape(-1, 1, 2)
+            cv2.polylines(vis, [ext], isClosed=True, color=edge_color, thickness=thickness)
+            for hole in region.holes:
+                h = hole.astype(np.int32).reshape(-1, 1, 2)
+                cv2.polylines(vis, [h], isClosed=True, color=edge_color, thickness=thickness)
 
 
 def _draw_labels(vis: np.ndarray, regions, label_color):
@@ -40,7 +45,7 @@ def render_visualization(data: RenderData, params: ConvertParams) -> bytes:
 
     thickness = max(1, int(round(params.line_thickness * 1.5)))
     edge_color = (0, 0, 0) if params.number_color == "black" else (100, 100, 100)
-    _draw_boundaries(vis, data.regions, thickness, edge_color)
+    _draw_boundaries(vis, data.regions, thickness, edge_color, data.edges)
     if params.show_numbers:
         label_color = (0, 0, 0) if params.number_color == "black" else (100, 100, 100)
         _draw_labels(vis, data.regions, label_color)
@@ -56,7 +61,7 @@ def render_outline(data: RenderData, params: ConvertParams) -> bytes:
     vis = np.ones((h, w, 3), dtype=np.uint8) * 255
     thickness = max(1, int(round(params.line_thickness * 1.5)))
     edge_color = (0, 0, 0) if params.number_color == "black" else (100, 100, 100)
-    _draw_boundaries(vis, data.regions, thickness, edge_color)
+    _draw_boundaries(vis, data.regions, thickness, edge_color, data.edges)
     if params.show_numbers:
         label_color = (0, 0, 0) if params.number_color == "black" else (100, 100, 100)
         _draw_labels(vis, data.regions, label_color)

@@ -109,20 +109,29 @@ def render_pdf(data: RenderData, params: ConvertParams) -> bytes:
     c.setLineWidth(outline_width)
 
     outlines = c.beginPath()
-    for region in data.regions:
-        pts = [_to_pdf_pt(geo, float(p[0]), float(p[1])) for p in region.contour]
-        if len(pts) >= 2:
-            outlines.moveTo(*pts[0])
-            for x, y in pts[1:]:
-                outlines.lineTo(x, y)
-            outlines.close()
-        for hole in region.holes:
-            pts = [_to_pdf_pt(geo, float(p[0]), float(p[1])) for p in hole]
+    if data.edges:
+        for edge in data.edges:
+            pts = [_to_pdf_pt(geo, float(p[0]), float(p[1])) for p in edge.polyline]
+            if len(pts) >= 2:
+                outlines.moveTo(*pts[0])
+                for x, y in pts[1:]:
+                    outlines.lineTo(x, y)
+    else:
+        # Fallback: per-region contours
+        for region in data.regions:
+            pts = [_to_pdf_pt(geo, float(p[0]), float(p[1])) for p in region.contour]
             if len(pts) >= 2:
                 outlines.moveTo(*pts[0])
                 for x, y in pts[1:]:
                     outlines.lineTo(x, y)
                 outlines.close()
+            for hole in region.holes:
+                pts = [_to_pdf_pt(geo, float(p[0]), float(p[1])) for p in hole]
+                if len(pts) >= 2:
+                    outlines.moveTo(*pts[0])
+                    for x, y in pts[1:]:
+                        outlines.lineTo(x, y)
+                    outlines.close()
     c.drawPath(outlines, fill=0, stroke=1)
 
     # ── Region labels at centroids ──
