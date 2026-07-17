@@ -54,6 +54,13 @@ class PaletteColor:
 
 
 @dataclass
+class SharedEdge:
+    label_a: int               # 0-based cluster id (or -1 for image border)
+    label_b: int               # 0-based cluster id (or -1 for image border)
+    polyline: object           # np.ndarray (N, 2) float — shared boundary path
+
+
+@dataclass
 class Region:
     color_index: int          # 1-based, matches PaletteColor.index
     area: int                 # pixel area
@@ -69,3 +76,4 @@ class RenderData:
     height: int
     palette: list             # list[PaletteColor]
     regions: list             # list[Region]
+    edges: list = field(default_factory=list)  # list[SharedEdge]
