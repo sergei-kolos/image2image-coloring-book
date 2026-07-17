@@ -58,20 +58,21 @@ def smooth_label_boundaries(labels: np.ndarray, sigma: float = 1.0) -> np.ndarra
 
 
 def clean_mask(mask: np.ndarray, kernel_size: int = 3) -> np.ndarray:
+    """Light denoising for per-color binary masks.
+
+    Only applies median blur — no MORPH_OPEN/CLOSE to avoid
+    shifting shared boundaries.  For heavy denoising prefer
+    ``smooth_label_boundaries`` on the full label map instead.
+    """
     k = max(1, kernel_size)
     median_k = k if k % 2 == 1 else k + 1
     mask = cv2.medianBlur(mask, median_k)
-    kernel_o = np.ones((k, k), np.uint8)
-    kernel_c = np.ones((k + 2, k + 2), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_o)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_c)
-    blur_k = k + 2 if (k + 2) % 2 == 1 else k + 3
-    blurred = cv2.GaussianBlur(mask.astype(np.float32), (blur_k, blur_k), 0)
-    return (blurred > 0.5).astype(np.uint8)
+    return mask
 
 
 def merge_small_regions(
-    labels: np.ndarray, palette: list[PaletteColor], min_area_px: int
+    labels: np.ndarray, palette: list[PaletteColor], min_area_px: int,
+    edge_density: np.ndarray = None,
 ) -> np.ndarray:
     """Merge connected regions below min_area_px into their most color-similar neighbor.
 
@@ -80,6 +81,10 @@ def merge_small_regions(
     below the area threshold, and reassign their pixels to the adjacent segment
     with the closest palette color. Iterates until no small regions remain or
     a merge cap is reached.
+
+    When *edge_density* is supplied, the effective area threshold is reduced
+    where edges are dense (detail zones like eyes, hair) so that small but
+    visually important regions are preserved.
     """
     labels = labels.copy()
     palette_rgb = [np.array(p.rgb, dtype=np.float64) for p in palette]
@@ -89,9 +94,15 @@ def merge_small_regions(
         if not seg_clusters:
             break
 
-        small_ids = [
-            sid for sid, info in seg_clusters.items() if info[1] < min_area_px
-        ]
+        small_ids = []
+        for sid, info in seg_clusters.items():
+            eff_min = min_area_px
+            if edge_density is not None:
+                seg_mask = seg_map == sid
+                dens = float(edge_density[seg_mask].mean())
+                eff_min = min_area_px * (1.0 - 0.7 * dens)
+            if info[1] < eff_min:
+                small_ids.append(sid)
         if not small_ids:
             break
 
