@@ -69,3 +69,12 @@ python -m pytest tests/ -q --tb=short   # all tests (48 pass)
 - Felzenszwalb min_size is fixed, not edge-aware (improved but not fully solved)
 - `clean_mask` in `extract_regions` still processes each color independently
 - See `SPEC_PIPELINE_V2.md` for remaining improvements
+
+## Known issues (planned for feat/shared-boundaries)
+- ~~Per-region contour stroke causes double lines at shared boundaries~~ → fixed with SharedEdge model
+- ~~Per-color `clean_mask` morph shifts boundaries independently~~ → replaced with medianBlur only
+- ~~pyrMeanShiftFiltering destroys fine details~~ → replaced with bilateralFilter
+- ~~Mean flatten loses color fidelity~~ → replaced with median flatten
+- ~~Aggressive merge_small wipes small important regions~~ → edge-aware threshold
+- ~~Rendering artifacts from independent contour smoothing~~ → shared edges extracted from label map
+- See `SPEC_SHARED_BOUNDARIES.md` for remaining improvements
