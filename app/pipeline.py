@@ -9,7 +9,7 @@ from skimage.segmentation import felzenszwalb
 
 from .models import ConvertParams, PipelineParams, RenderData
 from .quantize import quantize, merge_similar_colors
-from .regions import extract_regions
+from .regions import extract_regions, extract_shared_edges
 from .postprocess import merge_small_regions, smooth_label_boundaries
 
 
@@ -24,13 +24,16 @@ def render_data_from_image(image_bytes: bytes, params: ConvertParams) -> RenderD
     labels = merge_small_regions(labels, palette, min_area_px)
     labels = smooth_label_boundaries(labels, sigma=pp.boundary_sigma)
     regions = extract_regions(labels, palette, morph_kernel=pp.morph_kernel)
+    edges = extract_shared_edges(labels)
     # Strip the 2px border added in _load_and_normalize (always added)
     regions = _strip_border_from_regions(regions, border=2)
+    edges = _strip_border_from_edges(edges, border=2)
     return RenderData(
         width=image.shape[1] - 4,
         height=image.shape[0] - 4,
         palette=palette,
         regions=regions,
+        edges=edges,
     )
 
 
@@ -95,6 +98,13 @@ def _strip_border_from_regions(regions, border: int):
         region.centroid = (region.centroid[0] - border, region.centroid[1] - border)
         region.holes = [h - border for h in region.holes]
     return regions
+
+
+def _strip_border_from_edges(edges, border: int):
+    """Shift all shared edge polylines inward by *border* pixels."""
+    for edge in edges:
+        edge.polyline = edge.polyline - border
+    return edges
 
 
 def _apply_global_morphology(
