@@ -22,3 +22,24 @@ PAPER_SIZES_MM = {
     "Letter": (215.9, 279.4),
     "Legal": (215.9, 355.6),
 }
+
+# ── AI Engine config ──────────────────────────────────────────────
+import os as _os
+
+SAM_HQ_MODEL_PATH = _os.environ.get(
+    "SAM_HQ_MODEL_PATH", "models/sam_hq_vit_h.pth"
+)
+SAM_HQ_MODEL_TYPE = _os.environ.get("SAM_HQ_MODEL_TYPE", "vit_h")
+
+SEMANTIC_MODEL_NAME = "nvidia/segformer-b2-finetuned-ade-512-512"
+
+
+def _detect_ai_device() -> str:
+    try:
+        import torch
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except ImportError:
+        return "cpu"
+
+
+AI_DEVICE = _detect_ai_device()
