@@ -70,7 +70,7 @@ def segment_with_sam_hq(
         min_area_px = max(100, int(h * w * pp.min_region_area_pct / 100))
         _MASK_GENERATOR = SamAutomaticMaskGenerator(
             model=_MODEL.model,
-            points_per_side=16,
+            points_per_side=32,
             pred_iou_thresh=0.86,
             stability_score_thresh=0.92,
             min_mask_region_area=min_area_px,
@@ -88,7 +88,7 @@ def segment_with_sam_hq(
     # ── Fine: Felzenszwalb texture segmentation ──
     felz_segments = felzenszwalb(
         image, scale=pp.felzenszwalb_scale, sigma=0.5,
-        min_size=max(100, int(h * w * 0.001)),
+        min_size=max(5, int(h * w * 0.0001)),
     )
 
     # ── Combine: intersect SAM masks with Felzenszwalb segments ──
