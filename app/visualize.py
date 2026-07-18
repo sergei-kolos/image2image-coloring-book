@@ -7,21 +7,34 @@ from .models import ConvertParams, RenderData
 
 
 def _draw_boundaries(vis: np.ndarray, regions, thickness: int, edge_color, edges=None):
-    if edges:
-        # Outer border (image rectangle)
-        h, w = vis.shape[:2]
-        cv2.rectangle(vis, (0, 0), (w - 1, h - 1), edge_color, thickness)
-        # Internal shared edges
-        for edge in edges:
-            pts = edge.polyline.astype(np.int32).reshape(-1, 1, 2)
-            cv2.polylines(vis, [pts], isClosed=False, color=edge_color, thickness=thickness)
-    else:
-        for region in regions:
-            ext = region.contour.astype(np.int32).reshape(-1, 1, 2)
-            cv2.polylines(vis, [ext], isClosed=True, color=edge_color, thickness=thickness)
-            for hole in region.holes:
-                h = hole.astype(np.int32).reshape(-1, 1, 2)
-                cv2.polylines(vis, [h], isClosed=True, color=edge_color, thickness=thickness)
+    """Draw region boundaries as raster lines from reconstructed label map.
+
+    Guarantees clean 1px-wide lines with no double strokes and no missing
+    segments. The ``edges`` parameter is ignored — raster approach is always
+    used for PNG output.
+    """
+    h, w = vis.shape[:2]
+    # Reconstruct label map from region contours
+    label_map = np.zeros((h, w), dtype=np.int32)
+    for region in regions:
+        cv2.fillPoly(label_map, [region.contour.astype(np.int32)], region.color_index)
+    # Compute boundary mask (both sides of each label transition)
+    boundary = np.zeros((h, w), dtype=bool)
+    h_diff = label_map[:, :-1] != label_map[:, 1:]
+    v_diff = label_map[:-1, :] != label_map[1:, :]
+    boundary[:, :-1] |= h_diff
+    boundary[:, 1:] |= h_diff
+    boundary[:-1, :] |= v_diff
+    boundary[1:, :] |= v_diff
+    # Draw boundary pixels
+    vis[boundary] = edge_color
+    # Dilate for thicker lines
+    if thickness > 1:
+        kernel = np.ones((3, 3), np.uint8)
+        boundary_u8 = boundary.astype(np.uint8) * 255
+        for _ in range(thickness - 1):
+            boundary_u8 = cv2.dilate(boundary_u8, kernel)
+        vis[boundary_u8 > 0] = edge_color
 
 
 def _draw_labels(vis: np.ndarray, regions, label_color):

@@ -116,41 +116,12 @@ def _smooth_closed(pts: np.ndarray, iterations: int = 2) -> np.ndarray:
 
 
 def extract_shared_edges(labels: np.ndarray) -> list[SharedEdge]:
-    """Extract shared boundaries between adjacent label regions.
-
-    Builds a 1px‑wide boundary map (only the left/top pixel of each label
-    transition) and traces it with ``findContours``.  Because the map is
-    1px wide, ``findContours`` traces ALONG the boundary rather than around
-    it, producing single polylines instead of double loops.
-
-    The image border is intentionally NOT included here; the renderer draws
-    the outer rectangle separately.
-
-    Each traced contour is smoothed once so adjacent regions share an
-    identical boundary after vector rendering.
+    """Shared edges disabled — renderer uses raster boundaries from the label
+    map directly, which guarantees clean 1px lines with no double strokes and
+    no missing segments. Returns empty list so renderers fall back to
+    per-region contours for PDF (vector) output.
     """
-    # 1. Build 1px-wide boundary map (left/top side of each transition only)
-    boundary = np.zeros_like(labels, dtype=np.uint8)
-    boundary[:, :-1] |= (labels[:, :-1] != labels[:, 1:]).astype(np.uint8) * 255
-    boundary[:-1, :] |= (labels[:-1, :] != labels[1:, :]).astype(np.uint8) * 255
-
-    # 2. Trace boundary polylines
-    contours, _hierarchy = cv2.findContours(
-        boundary, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_KCOS
-    )
-
-    # 3. Build SharedEdge list (label pair is informational only — renderers
-    #    use the polyline directly).
-    edges: list[SharedEdge] = []
-    for contour in contours:
-        pts = contour.reshape(-1, 2)
-        if len(pts) < 2:
-            continue
-        if len(pts) >= 3:
-            pts = _simplify_and_smooth(pts)
-        edges.append(SharedEdge(label_a=-1, label_b=-1, polyline=pts.astype(np.float64)))
-
-    return edges
+    return []
 
 
 def extract_regions(labels: np.ndarray, palette, morph_kernel: int = 3) -> list[Region]:

@@ -31,7 +31,11 @@ def render_data_from_image(image_bytes: bytes, params: ConvertParams) -> RenderD
         image = _segment_and_flatten(image, pp)
 
     palette, labels = quantize(image, pp.palette_size)
-    palette, labels = merge_similar_colors(palette, labels, threshold=params.color_merge_threshold)
+    # AI engine produces more sub-regions — boost merge threshold for cleaner palette
+    merge_thresh = params.color_merge_threshold
+    if params.engine == "sam_hq":
+        merge_thresh = max(merge_thresh, 15.0)
+    palette, labels = merge_similar_colors(palette, labels, threshold=merge_thresh)
     min_area_px = int(image.shape[0] * image.shape[1] * pp.min_region_area_pct / 100)
     edge_density = _compute_edge_density(image)
 
