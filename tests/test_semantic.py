@@ -28,3 +28,47 @@ class TestIsSemanticAvailable:
         from app.semantic import is_semantic_available
         result = is_semantic_available()
         assert isinstance(result, bool)
+
+
+class TestImportanceMapIntegration:
+    def test_compute_importance_with_stub(self, monkeypatch):
+        """Verify compute_importance_map returns correct shape/range with stubbed model."""
+        import numpy as np
+
+        image = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+
+        class FakeProcessor:
+            @staticmethod
+            def from_pretrained(name):
+                return FakeProcessor()
+
+            def __call__(self, images, return_tensors):
+                import torch
+                return {"pixel_values": torch.randn(1, 3, 256, 256)}
+
+        class FakeModel:
+            def to(self, device):
+                return self
+            def eval(self):
+                return self
+            def __call__(self, **kwargs):
+                import torch
+                logits = torch.zeros(1, 150, 16, 16)
+                logits[:, 2, :, :] = 10.0
+                logits[:, 12, 8:12, 8:12] = 20.0
+                return type("FakeOutput", (), {"logits": logits, "loss": None})()
+
+        def fake_load():
+            import app.semantic as sem_mod
+            sem_mod._PROCESSOR = FakeProcessor()
+            sem_mod._MODEL = FakeModel()
+
+        import app.semantic as sem_mod
+        monkeypatch.setattr(sem_mod, "_load_semantic_model", fake_load)
+        monkeypatch.setattr(sem_mod, "is_semantic_available", lambda: True)
+
+        result = sem_mod.compute_importance_map(image)
+        assert result.shape == (64, 64)
+        assert result.dtype == np.float32
+        assert 0.0 <= result.min() <= result.max() <= 1.0
+        assert result[32, 32] > result[0, 0]
