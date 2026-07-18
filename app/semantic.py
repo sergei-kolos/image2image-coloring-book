@@ -190,13 +190,13 @@ _CLASS_IMPORTANCE = np.array([
     0.30,  # 123: trade name/brand
     0.25,  # 124: microwave
     0.40,  # 125: pot/flowerpot
-    0.60,  # 126: animal
+    0.85,  # 126: animal
     0.50,  # 127: bicycle
     0.10,  # 128: lake
     0.25,  # 129: dishwasher
     0.30,  # 130: screen/CRT
     0.30,  # 131: blanket
-    0.60,  # 132: sculptor
+    0.85,  # 132: sculptor
     0.25,  # 133: hood
     0.30,  # 134: sconce
     0.40,  # 135: vase
