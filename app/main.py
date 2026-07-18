@@ -34,6 +34,17 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/api/capabilities")
+def capabilities():
+    from .sam_segment import is_sam_hq_available
+    from .semantic import is_semantic_available
+    return {
+        "sam_hq": is_sam_hq_available(),
+        "semantic": is_semantic_available(),
+        "device": config.AI_DEVICE,
+    }
+
+
 async def _form_params(
     detail_level: int = Form(5),
     max_colors: int = Form(64),
@@ -46,6 +57,7 @@ async def _form_params(
     orientation: str = Form("auto"),
     show_numbers: bool = Form(True),
     number_color: str = Form("black"),
+    engine: str = Form("classic"),
 ) -> ConvertParams:
     return ConvertParams(
         detail_level=detail_level,
@@ -59,6 +71,7 @@ async def _form_params(
         orientation=orientation,
         show_numbers=show_numbers,
         number_color=number_color,
+        engine=engine,
     )
 
 
@@ -74,7 +87,10 @@ async def convert(
     if len(contents) > config.MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="File too large")
 
-    data = render_data_from_image(contents, params)
+    try:
+        data = render_data_from_image(contents, params)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     colored_png = render_visualization(data, params)
     outline_png = render_outline(data, params)
     pdf_bytes = render_pdf(data, params)
