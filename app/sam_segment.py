@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128")
+
 import numpy as np
 
 from .models import PipelineParams
@@ -27,10 +30,13 @@ def _load_sam_hq_model():
         return
 
     import torch
-    from .config import AI_DEVICE, SAM_HQ_MODEL_PATH
+    from .config import AI_DEVICE, SAM_HQ_MODEL_PATH, GPU_MEMORY_FRACTION
     from segment_anything import sam_model_registry, SamPredictor
 
-    model_type = "vit_h"
+    if AI_DEVICE.startswith("cuda"):
+        torch.cuda.set_per_process_memory_fraction(GPU_MEMORY_FRACTION)
+
+    model_type = "vit_l"
     sam = sam_model_registry[model_type](checkpoint=SAM_HQ_MODEL_PATH)
     sam.to(device=AI_DEVICE)
     _MODEL = SamPredictor(sam)
@@ -64,20 +70,25 @@ def segment_with_sam_hq(
         min_area_px = max(100, int(h * w * pp.min_region_area_pct / 100))
         _MASK_GENERATOR = SamAutomaticMaskGenerator(
             model=_MODEL.model,
-            points_per_side=32,
+            points_per_side=16,
             pred_iou_thresh=0.86,
             stability_score_thresh=0.92,
             min_mask_region_area=min_area_px,
         )
 
     # ── Coarse: SAM-HQ object segmentation ──
-    masks = _MASK_GENERATOR.generate(image)
+    import torch
+    if AI_DEVICE.startswith("cuda"):
+        with torch.autocast(device_type="cuda", dtype=torch.float16):
+            masks = _MASK_GENERATOR.generate(image)
+    else:
+        masks = _MASK_GENERATOR.generate(image)
     sam_labels = _masks_to_labels(masks, h, w)
 
     # ── Fine: Felzenszwalb texture segmentation ──
     felz_segments = felzenszwalb(
         image, scale=pp.felzenszwalb_scale, sigma=0.5,
-        min_size=max(5, int(h * w * 0.00002)),
+        min_size=max(100, int(h * w * 0.001)),
     )
 
     # ── Combine: intersect SAM masks with Felzenszwalb segments ──

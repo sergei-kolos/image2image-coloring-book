@@ -27,11 +27,14 @@ PAPER_SIZES_MM = {
 import os as _os
 
 SAM_HQ_MODEL_PATH = _os.environ.get(
-    "SAM_HQ_MODEL_PATH", "models/sam_hq_vit_h.pth"
+    "SAM_HQ_MODEL_PATH", "models/sam_hq_vit_l.pth"
 )
-SAM_HQ_MODEL_TYPE = _os.environ.get("SAM_HQ_MODEL_TYPE", "vit_h")
+SAM_HQ_MODEL_TYPE = _os.environ.get("SAM_HQ_MODEL_TYPE", "vit_l")
 
 SEMANTIC_MODEL_NAME = "nvidia/segformer-b2-finetuned-ade-512-512"
+
+# Cap GPU memory usage (fraction of total VRAM). Default: 50%.
+GPU_MEMORY_FRACTION = float(_os.environ.get("GPU_MEMORY_FRACTION", "0.5"))
 
 
 def _detect_ai_device() -> str:
