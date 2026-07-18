@@ -11,3 +11,11 @@ pydantic
 pytest
 pytest-cov
 httpx
+
+# AI engine (optional — app works without these, see app/sam_segment.py)
+torch==2.1.2
+torchvision==0.16.2
+transformers>=4.30,<5.0
+segment-anything @ git+https://github.com/facebookresearch/segment-anything.git
+sam-hq @ git+https://github.com/SysCV/sam-hq.git
+timm

@@ -12,3 +12,12 @@ uploads/
 .superpowers/
 *.pdf
 !samples/*.pdf
+
+# AI model weights (large files, downloaded manually)
+models/
+
+# HuggingFace cache
+.cache/huggingface/
+
+# sam-hq vendored source
+vendor/
