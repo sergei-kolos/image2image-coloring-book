@@ -39,13 +39,19 @@ def _load_sam_hq_model():
 def segment_with_sam_hq(
     image: np.ndarray, pp: PipelineParams
 ) -> np.ndarray:
-    """Run SAM-HQ automatic mask generation and return a flattened RGB image.
+    """Run SAM-HQ automatic mask generation refined with Felzenszwalb.
 
-    The returned image has each region filled with its median colour, matching
-    the output format of `_segment_and_flatten` so the rest of the pipeline
-    (k-means, merge, regions) works unchanged.
+    SAM-HQ produces object-aware masks (good for object boundaries).
+    Felzenszwalb produces texture-aware segments (good for internal detail).
+    The two are combined by label intersection: each pixel's label uniquely
+    identifies its SAM mask AND Felzenszwalb segment. This preserves SAM
+    object boundaries while adding fine sub-region detail within large masks.
+
+    Returns a flattened RGB image (median colour per combined region),
+    matching the output format of ``_segment_and_flatten``.
     """
     from .config import AI_DEVICE
+    from skimage.segmentation import felzenszwalb
 
     h, w = image.shape[:2]
 
@@ -64,9 +70,27 @@ def segment_with_sam_hq(
             min_mask_region_area=min_area_px,
         )
 
+    # ── Coarse: SAM-HQ object segmentation ──
     masks = _MASK_GENERATOR.generate(image)
-    labels = _masks_to_labels(masks, h, w)
+    sam_labels = _masks_to_labels(masks, h, w)
 
+    # ── Fine: Felzenszwalb texture segmentation ──
+    felz_segments = felzenszwalb(
+        image, scale=pp.felzenszwalb_scale, sigma=0.5,
+        min_size=max(5, int(h * w * 0.00002)),
+    )
+
+    # ── Combine: intersect SAM masks with Felzenszwalb segments ──
+    max_felz = int(felz_segments.max()) + 1
+    combined = sam_labels.astype(np.int64) * max_felz + felz_segments.astype(np.int64)
+
+    unique = np.unique(combined)
+    relabel = np.zeros(int(combined.max()) + 1, dtype=np.int32)
+    for new_id, old_id in enumerate(unique):
+        relabel[old_id] = new_id
+    labels = relabel[combined]
+
+    # ── Flatten to median colours ──
     flat_img = image.reshape(-1, 3).astype(np.float64)
     flat_lbl = labels.ravel()
     n = int(labels.max()) + 1
