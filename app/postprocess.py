@@ -73,6 +73,7 @@ def clean_mask(mask: np.ndarray, kernel_size: int = 3) -> np.ndarray:
 def merge_small_regions(
     labels: np.ndarray, palette: list[PaletteColor], min_area_px: int,
     edge_density: np.ndarray = None,
+    importance_map: np.ndarray = None,
 ) -> np.ndarray:
     """Merge connected regions below min_area_px into their most color-similar neighbor.
 
@@ -97,10 +98,14 @@ def merge_small_regions(
         small_ids = []
         for sid, info in seg_clusters.items():
             eff_min = min_area_px
-            if edge_density is not None:
-                seg_mask = seg_map == sid
-                dens = float(edge_density[seg_mask].mean())
-                eff_min = min_area_px * (1.0 - 0.7 * dens)
+            seg_mask = seg_map == sid
+            if edge_density is not None or importance_map is not None:
+                detail_signal = 0.0
+                if edge_density is not None:
+                    detail_signal += 0.5 * float(edge_density[seg_mask].mean())
+                if importance_map is not None:
+                    detail_signal += 0.5 * float(importance_map[seg_mask].mean())
+                eff_min = min_area_px * (1.0 - 0.7 * detail_signal)
             if info[1] < eff_min:
                 small_ids.append(sid)
         if not small_ids:
