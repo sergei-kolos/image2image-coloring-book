@@ -18,6 +18,7 @@ class ConvertParams(BaseModel):
     orientation: Literal["auto", "portrait", "landscape"] = "auto"
     show_numbers: bool = True
     number_color: Literal["black", "gray"] = "black"
+    engine: Literal["classic", "sam_hq"] = "classic"
 
     def pipeline_params(self) -> PipelineParams:
         t = (self.detail_level - 1) / 14.0
