@@ -28,13 +28,12 @@ def _load_sam_hq_model():
 
     import torch
     from .config import AI_DEVICE, SAM_HQ_MODEL_PATH
-    from segment_anything import sam_model_registry
-    from sam_hq.predictor import SamHQPredictor
+    from segment_anything import sam_model_registry, SamPredictor
 
     model_type = "vit_h"
     sam = sam_model_registry[model_type](checkpoint=SAM_HQ_MODEL_PATH)
     sam.to(device=AI_DEVICE)
-    _MODEL = SamHQPredictor(sam)
+    _MODEL = SamPredictor(sam)
 
 
 def segment_with_sam_hq(
