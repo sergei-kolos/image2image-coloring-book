@@ -110,6 +110,11 @@ def render_pdf(data: RenderData, params: ConvertParams) -> bytes:
 
     outlines = c.beginPath()
     if data.edges:
+        # Outer border (image rectangle)
+        x0, y0 = _to_pdf_pt(geo, 0, 0)
+        x1, y1 = _to_pdf_pt(geo, data.width, data.height)
+        c.rect(x0, y0, x1 - x0, y1 - y0, stroke=1, fill=0)
+        # Internal shared edges
         for edge in data.edges:
             pts = [_to_pdf_pt(geo, float(p[0]), float(p[1])) for p in edge.polyline]
             if len(pts) >= 2:

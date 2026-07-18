@@ -8,6 +8,10 @@ from .models import ConvertParams, RenderData
 
 def _draw_boundaries(vis: np.ndarray, regions, thickness: int, edge_color, edges=None):
     if edges:
+        # Outer border (image rectangle)
+        h, w = vis.shape[:2]
+        cv2.rectangle(vis, (0, 0), (w - 1, h - 1), edge_color, thickness)
+        # Internal shared edges
         for edge in edges:
             pts = edge.polyline.astype(np.int32).reshape(-1, 1, 2)
             cv2.polylines(vis, [pts], isClosed=False, color=edge_color, thickness=thickness)

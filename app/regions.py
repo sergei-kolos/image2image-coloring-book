@@ -118,81 +118,37 @@ def _smooth_closed(pts: np.ndarray, iterations: int = 2) -> np.ndarray:
 def extract_shared_edges(labels: np.ndarray) -> list[SharedEdge]:
     """Extract shared boundaries between adjacent label regions.
 
-    Builds a binary edge map from label transitions, traces the edge
-    polylines with ``findContours``, assigns each edge to the label pair
-    on either side, and returns a list of ``SharedEdge`` (one per label
-    pair — collinear segments with the same pair are merged into one path).
+    Builds a 1px‑wide boundary map (only the left/top pixel of each label
+    transition) and traces it with ``findContours``.  Because the map is
+    1px wide, ``findContours`` traces ALONG the boundary rather than around
+    it, producing single polylines instead of double loops.
 
-    Smoothing is applied once per shared edge so adjacent regions share
-    an identical boundary after vector rendering.
+    The image border is intentionally NOT included here; the renderer draws
+    the outer rectangle separately.
+
+    Each traced contour is smoothed once so adjacent regions share an
+    identical boundary after vector rendering.
     """
-    h, w = labels.shape
+    # 1. Build 1px-wide boundary map (left/top side of each transition only)
+    boundary = np.zeros_like(labels, dtype=np.uint8)
+    boundary[:, :-1] |= (labels[:, :-1] != labels[:, 1:]).astype(np.uint8) * 255
+    boundary[:-1, :] |= (labels[:-1, :] != labels[1:, :]).astype(np.uint8) * 255
 
-    # 1. Build binary edge map
-    edge_map = np.zeros((h, w), dtype=np.uint8)
-    h_diff = labels[:, :-1] != labels[:, 1:]
-    v_diff = labels[:-1, :] != labels[1:, :]
-    edge_map[:, :-1] = np.where(h_diff, 255, edge_map[:, :-1])
-    edge_map[:, 1:] = np.where(h_diff, 255, edge_map[:, 1:])
-    edge_map[:-1, :] = np.where(v_diff, 255, edge_map[:-1, :])
-    edge_map[1:, :] = np.where(v_diff, 255, edge_map[1:, :])
-    # Mark outer border as edge
-    edge_map[0, :] = 255
-    edge_map[-1, :] = 255
-    edge_map[:, 0] = 255
-    edge_map[:, -1] = 255
-
-    # 2. Trace edge polylines
+    # 2. Trace boundary polylines
     contours, _hierarchy = cv2.findContours(
-        edge_map, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_KCOS
+        boundary, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_KCOS
     )
 
-    # 3. Assign label pair to each edge segment
-    edges_by_pair: dict[tuple[int, int], list[np.ndarray]] = {}
-
-    for contour in contours:
-        if len(contour) < 2:
-            continue
-        pts = contour.reshape(-1, 2)
-
-        # Sample one mid-point to get label pair
-        mid = len(pts) // 2
-        px, py = int(pts[mid, 0]), int(pts[mid, 1])
-
-        # Look at 4-neighborhood to find the two labels
-        neighbor_labels = set()
-        for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-            nx, ny = px + dx, py + dy
-            if 0 <= nx < w and 0 <= ny < h:
-                neighbor_labels.add(int(labels[ny, nx]))
-            else:
-                neighbor_labels.add(-1)  # outside image = border
-
-        if len(neighbor_labels) < 2:
-            continue
-
-        sorted_labels = sorted(neighbor_labels)
-        lb_a, lb_b = sorted_labels[0], sorted_labels[-1]
-
-        key = (lb_a, lb_b)
-        if key not in edges_by_pair:
-            edges_by_pair[key] = []
-        edges_by_pair[key].append(pts)
-
-    # 4. Build SharedEdge list (already smoothed)
+    # 3. Build SharedEdge list (label pair is informational only — renderers
+    #    use the polyline directly).
     edges: list[SharedEdge] = []
-    for (lb_a, lb_b), segments in edges_by_pair.items():
-        # Concatenate all segments for this label pair
-        if len(segments) == 1:
-            polyline = segments[0]
-        else:
-            # Concatenate and simplify
-            polyline = np.vstack(segments)
-
-        if len(polyline) >= 3:
-            polyline = _simplify_and_smooth(polyline)
-
-        edges.append(SharedEdge(label_a=lb_a, label_b=lb_b, polyline=polyline))
+    for contour in contours:
+        pts = contour.reshape(-1, 2)
+        if len(pts) < 2:
+            continue
+        if len(pts) >= 3:
+            pts = _simplify_and_smooth(pts)
+        edges.append(SharedEdge(label_a=-1, label_b=-1, polyline=pts.astype(np.float64)))
 
     return edges
 
