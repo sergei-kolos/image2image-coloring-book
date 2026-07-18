@@ -7,6 +7,12 @@
 </head>
 <body>
   <main class="container">
+    <div id="loading-overlay" class="loading-overlay" hidden>
+      <div class="loading-card">
+        <div class="spinner"></div>
+        <p>AI segmentation in progress… this may take up to 10 seconds.</p>
+      </div>
+    </div>
     <h1>Paint by Numbers</h1>
     <form id="convert-form">
       <label class="file" for="image" id="file-label">
@@ -15,6 +21,16 @@
         <span class="file-name">Choose an image</span>
       </label>
       <div class="preview"><img id="preview" alt="" hidden></div>
+
+      <div class="engine-selector" id="engine-selector">
+        <span class="engine-label">Engine:</span>
+        <label class="engine-option active" id="engine-classic-label">
+          <input type="radio" name="engine" value="classic" checked> Classic
+        </label>
+        <label class="engine-option" id="engine-sam-label">
+          <input type="radio" name="engine" value="sam_hq"> AI (SAM-HQ)
+        </label>
+      </div>
 
       <fieldset class="params">
         <legend>Parameters</legend>
