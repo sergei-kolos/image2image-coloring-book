@@ -17,12 +17,32 @@ def render_data_from_image(image_bytes: bytes, params: ConvertParams) -> RenderD
     """Run the full conversion pipeline and return data ready for PDF rendering."""
     pp = params.pipeline_params()
     image = _load_and_normalize(image_bytes, pp)
-    image = _segment_and_flatten(image, pp)
+
+    # ── Segmentation engine branch ──
+    if params.engine == "sam_hq":
+        from .sam_segment import segment_with_sam_hq, is_sam_hq_available
+        if not is_sam_hq_available():
+            raise RuntimeError(
+                "SAM-HQ engine requested but not available. "
+                "Install torch + sam-hq + download weights."
+            )
+        image = segment_with_sam_hq(image, pp)
+    else:
+        image = _segment_and_flatten(image, pp)
+
     palette, labels = quantize(image, pp.palette_size)
     palette, labels = merge_similar_colors(palette, labels, threshold=params.color_merge_threshold)
     min_area_px = int(image.shape[0] * image.shape[1] * pp.min_region_area_pct / 100)
     edge_density = _compute_edge_density(image)
-    labels = merge_small_regions(labels, palette, min_area_px, edge_density)
+
+    # ── Semantic importance (AI engine only; optional even then) ──
+    importance_map = None
+    if params.engine == "sam_hq":
+        from .semantic import compute_importance_map, is_semantic_available
+        if is_semantic_available():
+            importance_map = compute_importance_map(image)
+
+    labels = merge_small_regions(labels, palette, min_area_px, edge_density, importance_map)
     if pp.boundary_sigma >= 0.5:
         labels = smooth_label_boundaries(labels, sigma=pp.boundary_sigma)
     regions = extract_regions(labels, palette, morph_kernel=pp.morph_kernel)
@@ -30,9 +50,12 @@ def render_data_from_image(image_bytes: bytes, params: ConvertParams) -> RenderD
     # Strip the 2px border added in _load_and_normalize (always added)
     regions = _strip_border_from_regions(regions, border=2)
     edges = _strip_border_from_edges(edges, border=2)
+    final_w = image.shape[1] - 4
+    final_h = image.shape[0] - 4
+    edges = _clip_edges_to_bounds(edges, final_w, final_h)
     return RenderData(
-        width=image.shape[1] - 4,
-        height=image.shape[0] - 4,
+        width=final_w,
+        height=final_h,
         palette=palette,
         regions=regions,
         edges=edges,
@@ -64,6 +87,16 @@ def _segment_and_flatten(image: np.ndarray, pp: PipelineParams) -> np.ndarray:
     sigma = 0.5
     h, w = image.shape[:2]
     area = h * w
+
+    # Enhance local contrast before segmentation — helps Felzenszwalb
+    # detect boundaries in low-contrast zones (shadows, skin tones).
+    clahe_clip = max(0.5, min(1.5, 1.5 - (pp.felzenszwalb_scale - 10) * 0.02))
+    lab = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=clahe_clip, tileGridSize=(8, 8))
+    l = clahe.apply(l)
+    lab = cv2.merge([l, a, b])
+    image = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
 
     # Use smaller min_size to preserve fine details, then let merge_small_regions
     # clean up noise in uniform zones (it already does color-similarity merging).
@@ -104,6 +137,14 @@ def _strip_border_from_edges(edges, border: int):
     """Shift all shared edge polylines inward by *border* pixels."""
     for edge in edges:
         edge.polyline = edge.polyline - border
+    return edges
+
+
+def _clip_edges_to_bounds(edges, width: int, height: int):
+    """Clip shared edge polylines to [0, width-1] x [0, height-1]."""
+    for edge in edges:
+        edge.polyline[:, 0] = np.clip(edge.polyline[:, 0], 0, width - 1)
+        edge.polyline[:, 1] = np.clip(edge.polyline[:, 1], 0, height - 1)
     return edges
 
 
