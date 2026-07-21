@@ -102,10 +102,10 @@ def merge_small_regions(
             if edge_density is not None or importance_map is not None:
                 detail_signal = 0.0
                 if edge_density is not None:
-                    detail_signal += 0.5 * float(edge_density[seg_mask].mean())
+                    detail_signal += 0.3 * float(edge_density[seg_mask].mean())
                 if importance_map is not None:
-                    detail_signal += 0.5 * float(importance_map[seg_mask].mean())
-                eff_min = min_area_px * (1.0 - 0.7 * detail_signal)
+                    detail_signal += 0.7 * float(importance_map[seg_mask].mean())
+                eff_min = min_area_px * (1.0 - 0.85 * detail_signal)
             if info[1] < eff_min:
                 small_ids.append(sid)
         if not small_ids:

@@ -39,8 +39,11 @@ def _draw_boundaries(vis: np.ndarray, regions, thickness: int, edge_color, edges
 
 def _draw_labels(vis: np.ndarray, regions, label_color):
     for region in regions:
+        r = region.max_radius or (region.area ** 0.5) * 0.3
+        if r < 3:
+            continue
         cx, cy = int(round(region.centroid[0])), int(round(region.centroid[1]))
-        font_scale = max(0.25, min(0.6, (region.area ** 0.5) * 0.008))
+        font_scale = max(0.15, min(0.6, r * 0.035))
         cv2.putText(
             vis, region.label, (cx, cy),
             cv2.FONT_HERSHEY_SIMPLEX, font_scale, label_color, 1, cv2.LINE_AA,

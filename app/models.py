@@ -68,6 +68,7 @@ class Region:
     centroid: tuple           # (x, y) in image pixel coords
     label: str                # display label (digit or letter for tiny zones)
     contour: object           # np.ndarray of shape (N, 2) — exterior ring
+    max_radius: float = 0.0  # radius of largest inscribed circle (0 = unknown)
     holes: list = field(default_factory=list)  # list[np.ndarray] interior cut‑outs
 
 

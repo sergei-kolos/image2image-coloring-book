@@ -64,7 +64,7 @@ def compute_importance_map(image: np.ndarray) -> np.ndarray:
 # ADE20K 150-class importance mapping
 # Index = ADE20K class id, value = importance (0..1)
 _CLASS_IMPORTANCE = np.array([
-    0.10,  # 0: wall
+    0.05,  # 0: wall
     0.15,  # 1: building
     0.05,  # 2: sky
     0.10,  # 3: floor
@@ -76,7 +76,7 @@ _CLASS_IMPORTANCE = np.array([
     0.05,  # 9: grass
     0.30,  # 10: cabinet
     0.10,  # 11: sidewalk
-    0.90,  # 12: person
+    1.00,  # 12: person
     0.05,  # 13: earth/ground
     0.15,  # 14: door
     0.35,  # 15: table

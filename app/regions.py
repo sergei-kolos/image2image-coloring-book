@@ -7,7 +7,7 @@ from .models import PaletteColor, Region, SharedEdge
 from .postprocess import clean_mask, chaikin_smooth, organic_smooth
 
 _BORDER_PADDING = 8        # px — clamp label positions away from edge
-_R_MIN_NUMERIC = 5.0       # px — smallest inscribed-circle radius that fits a number
+_R_MIN_NUMERIC = 6.0       # px — smallest inscribed-circle radius that fits a number
 _LETTER_POOL = [chr(65 + i) for i in range(26)]
 _LETTER_COUNTER: list[int] = [0]
 
@@ -176,6 +176,7 @@ def extract_regions(labels: np.ndarray, palette, morph_kernel: int = 3) -> list[
                     centroid=centroid,
                     label=label,
                     contour=exterior,
+                    max_radius=float(max_radius),
                     holes=holes,
                 )
             )

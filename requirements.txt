@@ -19,3 +19,6 @@ transformers>=4.30,<5.0
 segment-anything @ git+https://github.com/facebookresearch/segment-anything.git
 sam-hq @ git+https://github.com/SysCV/sam-hq.git
 timm
+
+# Face landmark detection (optional — improves face detail preservation)
+mediapipe<0.10.9

@@ -33,6 +33,9 @@ def render_data_from_image(image_bytes: bytes, params: ConvertParams) -> RenderD
     palette, labels = quantize(image, pp.palette_size)
     palette, labels = merge_similar_colors(palette, labels, threshold=params.color_merge_threshold)
     min_area_px = int(image.shape[0] * image.shape[1] * pp.min_region_area_pct / 100)
+    # AI engine uses importance guidance — allow smaller regions to preserve fine details
+    if params.engine == "sam_hq":
+        min_area_px = max(min_area_px // 3, 100)
     edge_density = _compute_edge_density(image)
 
     # ── Semantic importance (AI engine only; optional even then) ──
@@ -41,6 +44,15 @@ def render_data_from_image(image_bytes: bytes, params: ConvertParams) -> RenderD
         from .semantic import compute_importance_map, is_semantic_available
         if is_semantic_available():
             importance_map = compute_importance_map(image)
+
+        # ── Face landmark boost — preserves nose/eyes/mouth ──
+        from .face_detection import compute_face_importance, is_face_detection_available
+        if is_face_detection_available():
+            face_map = compute_face_importance(image)
+            if importance_map is not None:
+                importance_map = np.clip(importance_map + face_map, 0, 1)
+            else:
+                importance_map = face_map
 
     labels = merge_small_regions(labels, palette, min_area_px, edge_density, importance_map)
     if pp.boundary_sigma >= 0.5:

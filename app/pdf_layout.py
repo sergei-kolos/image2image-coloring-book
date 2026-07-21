@@ -143,12 +143,15 @@ def render_pdf(data: RenderData, params: ConvertParams) -> bytes:
     if params.show_numbers:
         c.setFillColor(number_color)
         for region in data.regions:
+            r = region.max_radius * geo.scale or (region.area ** 0.5 * geo.scale) * 0.3
+            if r < 2:
+                continue
             cx, cy = _to_pdf_pt(geo, region.centroid[0], region.centroid[1])
             rendered_area_pt = region.area * geo.scale * geo.scale
             side = rendered_area_pt ** 0.5
             # Cap font size by both region side and label width
             label_w_factor = max(1.0, len(region.label) * 0.55)
-            font_size = max(3.0, min(16.0, side * 0.7 / label_w_factor))
+            font_size = max(2.0, min(16.0, side * 0.7 / label_w_factor))
             c.setFont("Helvetica", font_size)
             c.drawCentredString(cx, cy - font_size / 2, region.label)
 
